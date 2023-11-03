@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "dhl-sdk"
+version = "0.1.0"
+description = ""
+authors = ["t.mateus.datahow <t.mateus@datahow.ch>"]
+readme = "README.md"
+packages = [{include = "dhl_sdk"}]
+
+[tool.poetry.group.dev.dependencies]
+Sphinx = "^5.3.0"
+nbsphinx = "^0.8.9"
+sphinx-rtd-theme = "^1.1.1"
+autodoc-pydantic = "^2.0.1"
+black = "^23.10.1"
+pytest = "^7.4"
+pylint = "^3.0.2"
+pytest-cov = "^3.0.0"
+ipykernel = "^6.26.0"
+matplotlib = "^3.8.1"
+
+[tool.poetry.dependencies]
+python = ">=3.9, <3.13"
+pydantic = "^2.4.2"
+requests = "^2.31.0"
+numpy = "^1.26.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
