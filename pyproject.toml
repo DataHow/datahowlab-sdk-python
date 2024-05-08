@@ -1,8 +1,9 @@
 [tool.poetry]
-name = "dhl-sdk"
-version = "0.1.0"
+name = "datahowlab-sdk"
+version = "0.2.0"
 description = ""
-authors = ["t.mateus.datahow <t.mateus@datahow.ch>"]
+license = "Apache-2.0"
+authors = ["DataHow <feedback@datahow.ch>"]
 readme = "README.md"
 packages = [{include = "dhl_sdk"}]
 

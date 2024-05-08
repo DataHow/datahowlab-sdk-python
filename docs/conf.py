@@ -12,8 +12,8 @@ sys.path.append("../dhl_sdk/")
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "DHL SDK"
-copyright = "2023, DataHow"
+project = "DataHowLab SDK"
+copyright = "2024, DataHow"
 author = "DataHow <proddev@datahow.ch>"
 
 # -- General configuration ---------------------------------------------------

@@ -1,30 +1,43 @@
+# pylint: disable=missing-docstring
 import unittest
 from unittest.mock import Mock
 
 import numpy as np
 from pydantic import BaseModel
-from dhl_sdk.entities import Variable
-from dhl_sdk.crud import Result
 
-from dhl_sdk._utils import (
-    Instance,
-    PredictResponse,
-)
-from dhl_sdk.exceptions import InvalidSpectraException, InvalidInputsException
-from dhl_sdk._spectra_utils import (
-    format_inputs,
+from dhl_sdk._input_processing import (
+    CultivationHistoricalPreprocessor,
+    CultivationPropagationPreprocessor,
+    SpectraPreprocessor,
+    _validate_spectra_format,
     format_predictions,
-    validate_prediction_inputs,
-    validate_spectra_format,
+)
+from dhl_sdk._utils import Instance, PredictResponse
+from dhl_sdk.crud import Result
+from dhl_sdk.entities import Variable
+from dhl_sdk.exceptions import (
+    InvalidInputsException,
+    InvalidSpectraException,
+    InvalidStepsException,
+    InvalidTimestampsException,
 )
 
 
-class TestUtils(unittest.TestCase):
+class TestSpectraUtils(unittest.TestCase):
     def setUp(self):
+        spectrum_var = {
+            "id": "ram-111",
+            "code": "spc1",
+            "variant": "spectrum",
+            "name": "raman 1",
+            "spectrum": {"xAxis": {"dimension": 4}},
+        }
         self.model_no_inputs = Mock()
         self.model_no_inputs.inputs = []
+        self.model_no_inputs.dataset.variables = [Variable(**spectrum_var)]
         self.model_with_inputs = Mock()
         self.model_with_inputs.dataset.variables = [
+            Variable(**spectrum_var),
             Variable(id="id-123", code="var1", variant="numeric", name="variable 1"),
             Variable(id="id-456", code="var2", variant="numeric", name="variable 2"),
             Variable(id="id-789", code="out1", variant="numeric", name="output 1"),
@@ -32,24 +45,14 @@ class TestUtils(unittest.TestCase):
         ]
         self.model_with_inputs.inputs = ["id-123", "id-456"]
 
-    def test_format_inputs(self):
-        inputs = {"var1": [1, 2, 3], "var2": [4, 5, 6]}
-        formatted_inputs = format_inputs(
-            inputs, self.model_with_inputs, self.model_with_inputs.inputs
-        )
-
-        self.assertDictEqual(
-            formatted_inputs, {"id-123": [1, 2, 3], "id-456": [4, 5, 6]}
-        )
-
     def test_format_spectra_validation(self):
-        spectra1 = [[1, 2, 3], [4, 5, 6]]
-        spectra2 = np.array([[1, 2, 3], [4, 5, 6]])
+        spectra1 = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+        spectra2 = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], dtype=np.float32)
         spectra3 = "spectra"
 
-        self.assertEqual(validate_spectra_format(spectra1), spectra1)
-        self.assertEqual(validate_spectra_format(spectra2), spectra1)
-        self.assertRaises(InvalidSpectraException, validate_spectra_format, spectra3)
+        self.assertEqual(_validate_spectra_format(spectra1), spectra1)
+        self.assertEqual(_validate_spectra_format(spectra2), spectra1)
+        self.assertRaises(InvalidSpectraException, _validate_spectra_format, spectra3)
 
     def test_format_predictions(self):
         predictions = [
@@ -58,8 +61,13 @@ class TestUtils(unittest.TestCase):
                     [
                         None,
                         None,
-                        Instance(values=[1, 2, 3]),
-                        Instance(values=[4, 5, 6]),
+                        None,
+                        Instance(
+                            values=[1, 2, 3], highValues=[2, 3, 5], lowValues=[0, 1, 1]
+                        ),
+                        Instance(
+                            values=[4, 5, 6], highValues=[5, 6, 6], lowValues=[1, 1, 1]
+                        ),
                     ]
                 ]
             ),
@@ -68,8 +76,13 @@ class TestUtils(unittest.TestCase):
                     [
                         None,
                         None,
-                        Instance(values=[1, 2, 3]),
-                        Instance(values=[4, 5, 6]),
+                        None,
+                        Instance(
+                            values=[1, 2, 3], highValues=[2, 3, 5], lowValues=[0, 1, 1]
+                        ),
+                        Instance(
+                            values=[4, 5, 6], highValues=[5, 6, 6], lowValues=[1, 1, 1]
+                        ),
                     ]
                 ]
             ),
@@ -81,55 +94,91 @@ class TestUtils(unittest.TestCase):
 
         self.assertDictEqual(
             formatted_predictions,
-            {"out1": [1, 2, 3, 1, 2, 3], "out2": [4, 5, 6, 4, 5, 6]},
+            {
+                "out1": {
+                    "values": [1, 2, 3, 1, 2, 3],
+                    "upperBound": [2, 3, 5, 2, 3, 5],
+                    "lowerBound": [0, 1, 1, 0, 1, 1],
+                },
+                "out2": {
+                    "values": [4, 5, 6, 4, 5, 6],
+                    "upperBound": [5, 6, 6, 5, 6, 6],
+                    "lowerBound": [1, 1, 1, 1, 1, 1],
+                },
+            },
         )
 
     def test_validation_no_input(self):
         model = self.model_no_inputs
         model.spectra_size = 4
 
-        empty_spectra = []
-        self.assertRaises(
-            InvalidSpectraException, validate_prediction_inputs, empty_spectra, model
-        )
+        spectra = [[1.0, 2.0, 3.0, 3.0], [4.0, 5.0, 6.0, 6.0], [7.0, 8.0, 9.0, 9.0]]
+        processor = SpectraPreprocessor(spectra=spectra, model=model, inputs=None)
+        processor.validate()
 
-        spectra = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+        empty_spectra = []
+        processor = SpectraPreprocessor(spectra=empty_spectra, model=model, inputs=None)
+
+        self.assertRaises(InvalidSpectraException, processor.validate)
+
+        spectra = [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]
+        processor = SpectraPreprocessor(spectra=spectra, model=model, inputs=None)
+
         self.assertRaises(
-            InvalidSpectraException, validate_prediction_inputs, spectra, model
+            InvalidSpectraException,
+            processor.validate,
         )
 
         spectra = [["1", "2", "3", "3"], [4, 5, 6, 6], [7, 8, 9, 9]]
+        processor = SpectraPreprocessor(spectra=spectra, model=model, inputs=None)
+
         self.assertRaises(
-            InvalidSpectraException, validate_prediction_inputs, spectra, model
+            InvalidSpectraException,
+            processor.validate,
         )
 
         spectra = [[1, 2, 3, 3], [4, 5, np.nan, 6], [7, 8, 9, 9]]
+        processor = SpectraPreprocessor(spectra=spectra, model=model, inputs=None)
+
         self.assertRaises(
-            InvalidSpectraException, validate_prediction_inputs, spectra, model
+            InvalidSpectraException,
+            processor.validate,
         )
 
-        spectra = [[1, 2, 3, 3], [4, 5, 6, 6], [7, 8, 9]]
+        spectra = [[1.0, 2.0, 3.0, 3.0], [4.0, 5.0, 6.0, 6.0], [7.0, 8.0, 9.0]]
+        processor = SpectraPreprocessor(spectra=spectra, model=model, inputs=None)
+
         self.assertRaises(
-            InvalidSpectraException, validate_prediction_inputs, spectra, model
+            InvalidSpectraException,
+            processor.validate,
         )
 
-        spectra = [[1, 2, 3, 3], [4, 5, 6, 6], [7, 8, 9, 9]]
-        self.assertEqual(
-            validate_prediction_inputs(np.array(spectra), model), (spectra, None)
+        spectra = [[1.0, 2.0, 3.0, 3.0], [4.0, 5.0, 6.0, 6.0], [7.0, 8.0, 9.0, 9.0]]
+        inputs = {"var1": [0, 1, 0], "var2": [1, 1, 1]}
+        processor = SpectraPreprocessor(spectra=spectra, model=model, inputs=inputs)
+        self.assertRaises(
+            InvalidInputsException,
+            processor.validate,
         )
 
     def test_validation_with_input(self):
         model = self.model_with_inputs
         model.spectra_size = 4
 
-        spectra = [[1, 2, 3, 3], [4, 5, 6, 6], [7, 8, 9, 9]]
+        spectra = [[1.0, 2.0, 3.0, 3.0], [4.0, 5.0, 6.0, 6.0], [7.0, 8.0, 9.0, 9.0]]
+        processor = SpectraPreprocessor(spectra=spectra, inputs=None, model=model)
+
         self.assertRaises(
-            InvalidInputsException, validate_prediction_inputs, spectra, model
+            InvalidInputsException,
+            processor.validate,
         )
 
         inputs = {"var10": [0, 1, 0], "var2": [1, 1, 1]}
+        processor = SpectraPreprocessor(spectra=spectra, model=model, inputs=inputs)
+
         with self.assertRaises(InvalidInputsException) as ex:
-            validate_prediction_inputs(spectra, model, inputs)
+            processor.validate()
+            processor.format()
             self.assertTrue(
                 ex.exception.message.startswith(
                     "No matching Input found for key: var10"
@@ -137,10 +186,503 @@ class TestUtils(unittest.TestCase):
             )
 
         inputs = {"var1": [0, 1, 0], "var2": [1, 1, 1]}
-        self.assertEqual(
-            validate_prediction_inputs(np.array(spectra), model, inputs),
-            (spectra, {"id-123": [0, 1, 0], "id-456": [1, 1, 1]}),
+        processor = SpectraPreprocessor(spectra=spectra, model=model, inputs=inputs)
+
+        processor.validate()
+
+        inputs = {"var1": [0, 1, 0], "var2": [1, 1, 1, 1]}
+        processor = SpectraPreprocessor(spectra=spectra, model=model, inputs=inputs)
+        with self.assertRaises(InvalidInputsException) as ex:
+            processor.validate()
+            self.assertTrue(
+                ex.exception.message.startswith(
+                    "The Number of values does not match the number of spectra"
+                )
+            )
+
+        inputs = {"var1": [0, None, 0], "var2": [1, 1, 1]}
+        processor = SpectraPreprocessor(spectra=spectra, model=model, inputs=inputs)
+        with self.assertRaises(InvalidInputsException) as ex:
+            processor.validate()
+            self.assertTrue(
+                ex.exception.message.startswith(
+                    "Invalid Inputs: The Inputs contains not valid values for input: var1"
+                )
+            )
+
+    def test_convert_to_request(self):
+        model = self.model_with_inputs
+        model.spectra_size = 4
+        model.dataset.get_spectrum_index.return_value = 0
+
+        spectra = [[1.0, 2.0, 3.0, 3.0], [4.0, 5.0, 6.0, 6.0], [7.0, 8.0, 9.0, 9.0]]
+        inputs = {"var1": [0, 1, 0], "var2": [1, 1, 1]}
+        processor = SpectraPreprocessor(spectra=spectra, model=model, inputs=inputs)
+
+        processor.validate()
+        request = processor.format()
+
+        self.assertEqual(request[0]["instances"][0][0]["sampleId"], ["0", "1", "2"])
+        self.assertEqual(request[0]["instances"][0][0]["values"][0], [1, 2, 3, 3])
+        self.assertEqual(request[0]["instances"][0][0]["values"][1], [4, 5, 6, 6])
+        self.assertEqual(request[0]["instances"][0][0]["values"][2], [7, 8, 9, 9])
+        self.assertEqual(request[0]["instances"][0][2]["values"], [1, 1, 1])
+
+    def test_convert_request_noinput(self):
+        model = self.model_no_inputs
+        model.spectra_size = 4
+        model.dataset.get_spectrum_index.return_value = 0
+
+        spectra = [[1.0, 2.0, 3.0, 3.0], [4.0, 5.0, 6.0, 6.0], [7.0, 8.0, 9.0, 9.0]]
+        processor = SpectraPreprocessor(spectra=spectra, model=model, inputs=None)
+
+        processor.validate()
+        request = processor.format()
+
+        self.assertEqual(request[0]["instances"][0][0]["sampleId"], ["0", "1", "2"])
+        self.assertEqual(request[0]["instances"][0][0]["values"][0], [1, 2, 3, 3])
+        self.assertEqual(request[0]["instances"][0][0]["values"][1], [4, 5, 6, 6])
+        self.assertEqual(request[0]["instances"][0][0]["values"][2], [7, 8, 9, 9])
+
+
+class TestCultivationUtils(unittest.TestCase):
+    def setUp(self):
+        var1 = {
+            "id": "id-123",
+            "code": "var1",
+            "variant": "numeric",
+            "name": "variable 1",
+            "group": {"code": "X"},
+        }
+        var2 = {
+            "id": "id-456",
+            "code": "var2",
+            "variant": "numeric",
+            "name": "variable 2",
+            "group": {"code": "X"},
+        }
+        var3 = {
+            "id": "id-789",
+            "code": "var3",
+            "variant": "numeric",
+            "name": "output 1",
+            "group": {"code": "W"},
+        }
+        var4 = {
+            "id": "id-101",
+            "code": "var4",
+            "variant": "numeric",
+            "name": "output 2",
+            "group": {"code": "Y"},
+        }
+        var5 = {
+            "id": "id-999",
+            "code": "var5",
+            "variant": "numeric",
+            "name": "not input",
+            "group": {"code": "X"},
+        }
+        self.model = Mock()
+        self.model.dataset.variables = [
+            Variable(**var1),
+            Variable(**var2),
+            Variable(**var3),
+            Variable(**var4),
+            Variable(**var5),
+        ]
+
+        self.model.model_variables = [
+            Variable(**var1),
+            Variable(**var2),
+            Variable(**var3),
+            Variable(**var4),
+        ]
+
+    def test_format_predictions(self):
+        predictions = [
+            PredictResponse(
+                instances=[
+                    [
+                        Instance(values=[1, 2, 3]),
+                        Instance(values=[4, 5, 6]),
+                        None,
+                        None,
+                    ]
+                ]
+            ),
+            PredictResponse(
+                instances=[
+                    [
+                        Instance(values=[1, 2, 3]),
+                        Instance(values=[4, 5, 6]),
+                        None,
+                        None,
+                    ]
+                ]
+            ),
+        ]
+
+        formatted_predictions = format_predictions(predictions, model=self.model)
+
+        self.assertDictEqual(
+            formatted_predictions,
+            {
+                "var1": {"values": [1, 2, 3, 1, 2, 3]},
+                "var2": {"values": [4, 5, 6, 4, 5, 6]},
+            },
         )
+
+    def test_timestamp_validation(self):
+        model = self.model
+        inputs = {"var1": [10], "var2": [20], "var3": [1, 2, 3], "var4": [40]}
+        timestamps = [1, 2, 3]
+
+        processor = CultivationPropagationPreprocessor(
+            np.array(timestamps), "m", inputs, model
+        )
+        processor.validate()
+        processor.timestamps = [60, 120, 180]
+
+        processor = CultivationPropagationPreprocessor(
+            {"timestamps": [1, 2]}, "s", inputs, model
+        )
+        with self.assertRaises(InvalidTimestampsException) as ex:
+            processor.validate()
+            self.assertTrue(
+                ex.exception.message.startswith("Timestamps must be a list of numbers")
+            )
+
+        processor = CultivationPropagationPreprocessor([2], "s", inputs, model)
+        with self.assertRaises(InvalidTimestampsException) as ex:
+            processor.validate()
+            self.assertTrue(
+                ex.exception.message.startswith(
+                    "Timestamps must be a list of at least 2 values"
+                )
+            )
+
+        processor = CultivationPropagationPreprocessor([1, 2], "s", inputs, model)
+        with self.assertRaises(InvalidInputsException) as ex:
+            processor.validate()
+            self.assertTrue(
+                ex.exception.message.startswith(
+                    "The recipe requires var3 to be complete"
+                )
+            )
+
+        processor = CultivationPropagationPreprocessor([6, 4, 3], "s", inputs, model)
+
+        with self.assertRaises(InvalidTimestampsException) as ex:
+            processor.validate()
+            self.assertTrue(
+                ex.exception.message.startswith("Timestamps must be in ascending order")
+            )
+
+        processor = CultivationPropagationPreprocessor([1, 2, 3], "m", inputs, model)
+        processor.validate()
+        self.assertEqual(processor.timestamps, [60, 120, 180])
+
+        processor = CultivationPropagationPreprocessor(["1", 2, 3], "h", inputs, model)
+
+        with self.assertRaises(InvalidTimestampsException) as ex:
+            processor.validate()
+            self.assertTrue(
+                ex.exception.message.startswith(
+                    "All values of timestamps must be valid numeric values"
+                )
+            )
+
+        processor = CultivationPropagationPreprocessor(
+            [1, 2, 3], "random", inputs, model
+        )
+        with self.assertRaises(InvalidTimestampsException) as ex:
+            processor.validate()
+            self.assertTrue(
+                ex.exception.message.startswith(
+                    "Invalid timestamps unit 'random' found."
+                )
+            )
+
+        processor = CultivationPropagationPreprocessor([-1, 2, 4], "h", inputs, model)
+        with self.assertRaises(InvalidTimestampsException) as ex:
+            processor.validate()
+            self.assertTrue(
+                ex.exception.message.startswith("Timestamps must be positive")
+            )
+
+        processor = CultivationPropagationPreprocessor([1, 2, 2], "h", inputs, model)
+        with self.assertRaises(InvalidTimestampsException) as ex:
+            processor.validate()
+            self.assertTrue(
+                ex.exception.message.startswith("Timestamps must be unique")
+            )
+
+    def test_input_validation(self):
+        model = self.model
+        inputs = {"var1": [10], "var2": [20], "var3": [1, 2, 3], "var4": [40]}
+        timestamps = [1, 2, 3]
+
+        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, model)
+
+        processor.validate()
+
+        inputs = {"var1": [10], "var3": [1, 2, 3], "var4": [40]}
+        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, model)
+
+        with self.assertRaises(InvalidInputsException) as ex:
+            processor.validate()
+            self.assertEqual(
+                ex.exception.message,
+                "Input var2 is a X Variable, so it must be provided",
+            )
+
+        inputs = {"var1": [10], "var2": [20], "var3": [1], "var4": [40]}
+        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, model)
+
+        with self.assertRaises(InvalidInputsException) as ex:
+            processor.validate()
+            self.assertTrue(
+                ex.exception.message.startswith(
+                    "The recipe requires var3 to be complete"
+                )
+            )
+
+        inputs = {"var1": [10], "var2": [20], "var3": [1, 3, 5]}
+        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, model)
+
+        processor.validate()
+
+        inputs = {"var1": [10, 20], "var2": [20], "var3": [1, 3, 5]}
+        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, model)
+
+        with self.assertRaises(InvalidInputsException) as ex:
+            processor.validate()
+            self.assertTrue(
+                ex.exception.message.startswith(
+                    "Input var1 only requires initial values"
+                )
+            )
+
+        inputs = {"var1": [10], "var2": [20], "var3": [1, "a", 5], "var4": [40, 50]}
+        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, model)
+
+        with self.assertRaises(InvalidInputsException) as ex:
+            processor.validate()
+            self.assertTrue(
+                ex.exception.message.startswith(
+                    "All values of input var3 must be valid numeric values"
+                )
+            )
+
+        inputs = {"var1": ["a"], "var2": [20], "var3": [1, 3, 5], "var4": [40, 50]}
+        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, model)
+
+        with self.assertRaises(InvalidInputsException) as ex:
+            processor.validate()
+            self.assertTrue(
+                ex.exception.message.startswith(
+                    "All values of input var1 must be valid numeric values"
+                )
+            )
+
+    def test_historical_model_inputs(self):
+        model = self.model
+        inputs = {
+            "var1": [10, 10, 10],
+            "var2": [20, 20, 20],
+            "var3": [1, 2, 3],
+            "var4": [40],
+        }
+        timestamps = [1, 2, 3]
+        steps = [0, 1, 2]
+
+        processor = CultivationHistoricalPreprocessor(
+            np.array(timestamps), "d", steps, inputs, model
+        )
+        processor.validate()
+        processor.timestamps = [86400, 172800, 259200]
+
+        inputs = None
+        processor = CultivationHistoricalPreprocessor(
+            timestamps, "d", steps, inputs, model
+        )
+
+        with self.assertRaises(InvalidInputsException) as ex:
+            processor.validate()
+            self.assertEqual(
+                ex.exception.message,
+                "No Inputs provided.",
+            )
+
+        inputs = [10, 20, 30]
+        processor = CultivationHistoricalPreprocessor(
+            timestamps, "d", steps, inputs, model
+        )
+
+        with self.assertRaises(InvalidInputsException) as ex:
+            processor.validate()
+            self.assertEqual(
+                ex.exception.message,
+                "Inputs must be a dictionary of lists",
+            )
+
+        inputs = {
+            "var1": 30,
+            "var2": 20,
+            "var3": [1, 2, 3],
+            "var4": [40, 50, 60],
+        }
+        processor = CultivationHistoricalPreprocessor(
+            timestamps, "d", steps, inputs, model
+        )
+
+        with self.assertRaises(InvalidInputsException) as ex:
+            processor.validate()
+            self.assertEqual(
+                ex.exception.message,
+                "All input values must be lists",
+            )
+
+        inputs = {
+            "var1": [10, "20", 30],
+            "var2": [20, 20, 20],
+            "var3": [1, 2, 3],
+            "var4": [40, 50, 60],
+        }
+        processor = CultivationHistoricalPreprocessor(
+            timestamps, "d", steps, inputs, model
+        )
+        with self.assertRaises(InvalidInputsException) as ex:
+            processor.validate()
+            self.assertEqual(
+                ex.exception.message,
+                "All values of input var1 must be valid numeric values",
+            )
+
+        inputs = {
+            "var1": [10, 20, 30],
+            "var2": [20, 20, 20],
+            "var4": [40, 50, 60],
+        }
+        processor = CultivationHistoricalPreprocessor(
+            timestamps, "d", steps, inputs, model
+        )
+        with self.assertRaises(InvalidInputsException) as ex:
+            processor.validate()
+            self.assertEqual(
+                ex.exception.message,
+                "Input var3 is a W Variable, so it must be provided",
+            )
+
+    def test_historical_steps(self):
+        model = self.model
+        inputs = {
+            "var1": [10, 10, 10],
+            "var2": [20, 20, 20],
+            "var3": [1, 2, 3],
+            "var4": [40],
+        }
+        timestamps = [1, 2, 3]
+        steps = [0, 1, 2]
+
+        steps = None
+        processor = CultivationHistoricalPreprocessor(
+            timestamps, "d", steps, inputs, model
+        )
+
+        with self.assertRaises(InvalidStepsException) as ex:
+            processor.validate()
+            self.assertEqual(
+                ex.exception.message,
+                "Steps must be a list of numbers",
+            )
+
+        steps = [0, 1, 2, 3]
+        processor = CultivationHistoricalPreprocessor(
+            timestamps, "d", steps, inputs, model
+        )
+
+        with self.assertRaises(InvalidStepsException) as ex:
+            processor.validate()
+            self.assertEqual(
+                ex.exception.message,
+                "Steps must have the same length as timestamps",
+            )
+
+        steps = [1, 2, 3]
+        processor = CultivationHistoricalPreprocessor(
+            timestamps, "d", steps, inputs, model
+        )
+
+        with self.assertRaises(InvalidStepsException) as ex:
+            processor.validate()
+            self.assertEqual(
+                ex.exception.message,
+                "Steps must start at 0",
+            )
+
+        steps = [0, 2, 1]
+        processor = CultivationHistoricalPreprocessor(
+            timestamps, "d", steps, inputs, model
+        )
+
+        with self.assertRaises(InvalidStepsException) as ex:
+            processor.validate()
+            self.assertEqual(
+                ex.exception.message,
+                "Steps must be in ascending order",
+            )
+
+    def test_convert_to_request(self):
+        model = self.model
+        inputs = {
+            "var4": [40],
+            "var1": [10],
+            "var3": [0.2, 0.6, 0.6, 0.1],
+            "var2": [20],
+        }
+        timestamps = [0, 1, 2, 3]
+
+        processor = CultivationPropagationPreprocessor(timestamps, "h", inputs, model)
+
+        processor.validate()
+        request = processor.format()
+
+        self.assertEqual(request[0]["instances"][0][0]["values"], [10])  # var1
+        self.assertEqual(request[0]["instances"][0][0]["timestamps"], [0])
+        self.assertEqual(request[0]["instances"][0][1]["values"], [20])  # var2
+        self.assertEqual(
+            request[0]["instances"][0][2]["values"], [0.2, 0.6, 0.6, 0.1]
+        )  # var3
+        self.assertEqual(
+            request[0]["instances"][0][2]["timestamps"], [0, 3600, 7200, 10800]
+        )
+
+    def test_convert_to_request_historical(self):
+        model = self.model
+        inputs = {
+            "var1": [10, 10, 10],
+            "var2": [20, 20, 20],
+            "var3": [1, 2, 3],
+            "var4": [40],
+        }
+        timestamps = [1, 2, 3]
+        steps = [0, 1, 2]
+
+        processor = CultivationHistoricalPreprocessor(
+            timestamps, "d", steps, inputs, model
+        )
+
+        processor.validate()
+        request = processor.format()
+
+        self.assertEqual(request[0]["instances"][0][0]["values"], [10, 10, 10])
+        self.assertEqual(
+            request[0]["instances"][0][0]["timestamps"], [86400, 172800, 259200]
+        )
+        self.assertEqual(request[0]["instances"][0][0]["steps"], [0, 1, 2])
+        self.assertEqual(request[0]["instances"][0][1]["values"], [20, 20, 20])
+        self.assertEqual(request[0]["instances"][0][2]["values"], [1, 2, 3])
 
 
 class TestResults(unittest.TestCase):
