@@ -118,9 +118,9 @@ class FlowVariableReference(BaseModel):
 class VariableFlow(BaseModel):
     """Model for Flow Variables"""
 
-    flow_type: Literal["bolus", "conti", "mbolus", "mconti", "sampling", "bleed"] = (
-        Field(default="bolus", alias="type")
-    )
+    flow_type: Literal[
+        "bolus", "conti", "mbolus", "mconti", "sampling", "bleed", "perfusion"
+    ] = Field(default="bolus", alias="type")
     step_size: Optional[float] = Field(default=None, alias="stepSize")
     volume_id: Optional[str] = Field(default=None, alias="volumeId")
     references: Optional[list[FlowVariableReference]] = Field(
