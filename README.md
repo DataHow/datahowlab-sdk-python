@@ -83,12 +83,14 @@ import numpy as np
 from dhl_sdk import DataHowLabClient, APIKeyAuthentication
 
 # DHL_API_KEY env var is loaded from the .env file or added directly as an argument here 
-key = APIKeyAuthentication()
+key = APIKeyAuthentication("API_KEY")
 
 # This is an example. Change this line to your DataHowLab Instance
 your_url = "https://yourdomain.datahowlab.ch/"
-client = DataHowLabClient(auth_key=key, base_url=your_url)
+client = DataHowLabClient(auth_key=key, base_url=your_url, verify_ssl = True)
 ```
+
+*Note*: the parameter `verify_ssl` of `DataHowLabClient` controls whether the SSL certificates are verified (verification is enabled by default). Disabling SSL verification should only be done in controlled environments, such as on premise deployments with trusted servers.
 
 ### Data Accessing 
 
