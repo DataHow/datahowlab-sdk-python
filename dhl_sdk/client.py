@@ -10,7 +10,7 @@ Classes:
     - DataHowLabClient: main client to interact with the DHL API
 """
 
-from typing import Any, Dict, Literal, Optional, Type, TypeVar
+from typing import Any, Dict, Literal, Optional, Type, TypeVar, Union
 from urllib.parse import urlencode
 
 import requests
@@ -253,7 +253,10 @@ class DataHowLabClient:
     """
 
     def __init__(
-        self, auth_key: APIKeyAuthentication, base_url: str, verify_ssl: bool = True
+        self,
+        auth_key: APIKeyAuthentication,
+        base_url: str,
+        verify_ssl: Union[bool, str] = True,
     ):
         """
         Parameters
@@ -262,16 +265,19 @@ class DataHowLabClient:
             An instance of the APIKeyAuthentication class containing the user's API key.
         base_url : str
             The URL address of the datahowlab application
-        verify_ssl : bool, optional
-            A parameter controls whether the SSL certificates of the server are
-            verified, by default True
+        verify_ssl : Union[bool, str], optional
+            Either a boolean, in which case it controls whether we verify the server's
+            TLS certificate, or a string, in which case it must be a path to a CA bundle
+            to use. For more info check the documentation for python's requests.request.
+            By default True.
 
         Returns
         -------
         NoneType
             None
         """
-        if not verify_ssl:
+
+        if isinstance(verify_ssl, bool) and not verify_ssl:
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
         self._client = Client(auth_key, base_url, verify=verify_ssl)

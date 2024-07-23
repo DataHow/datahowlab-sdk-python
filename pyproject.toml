@@ -9,7 +9,7 @@ packages = [{include = "dhl_sdk"}]
 
 [project.urls]
 Homepage = "https://datahow.ch/"
-Source = "https://github.com/DataHow/datahowlab-sdk-python.git"
+Source = "https://github.com/DataHow/datahowlab-sdk-python"
 
 [tool.poetry.group.dev.dependencies]
 Sphinx = "^5.3.0"
