@@ -6,27 +6,21 @@ the integration of some functionalities of DataHowLab's into a simple Python pac
 This SDK provides a convenient and efficient way to interact with DataHowLab's API, 
 allowing you to easily access and use your models and data.
 
-    Data Exporting
-    --------------
+* **Data Exporting**
+  * Access all the information about your data
+  * Get information and your Products, Variables, Recipes and Experiments
+  * Export the data associated with each Experiments
 
-    * Access all the information about your data
-    * Get information and your Products, Variables, Recipes and Experiments
-    * Export the data associated with each Experiments
+* **Data Importing**
+  * Create new Products
+  * Create new Variables
+  * Create new Recipes
+  * Create new Experiments
 
-    Data Importing
-    --------------
-
-    * Create new Products
-    * Create new Variables
-    * Create new Recipes
-    * Create new Experiments
-
-    Model Predictions
-    -----------------
-
-    * Using your models trained on DataHowLab, compute new predictions for your new data just by accessing the model. 
-    * The model can be accessed by selecting the Project and the Model you want to use.
-    * The data will be validated prior to the prediction.
+* **Model Predictions**
+  * Using your models trained on DataHowLab, compute new predictions for your new data just by accessing the model.
+  * The model can be accessed by selecting the Project and the Model you want to use.
+  * The data will be validated prior to the prediction.
 
 ## Prerequisites
 
@@ -48,7 +42,7 @@ $ pip install datahowlab-sdk
 1. **Install Poetry** If you don't have Poetry installed, you can do it using `pipx`:
 
 ```bash 
-$ pip install poetry
+$ pipx install poetry
 ```
 
 For more detailed installation instructions, you can refer to the [Poetry documentation](https://python-poetry.org/docs/#installation).
@@ -83,14 +77,12 @@ import numpy as np
 from dhl_sdk import DataHowLabClient, APIKeyAuthentication
 
 # DHL_API_KEY env var is loaded from the .env file or added directly as an argument here 
-key = APIKeyAuthentication("API_KEY")
+key = APIKeyAuthentication()
 
 # This is an example. Change this line to your DataHowLab Instance
 your_url = "https://yourdomain.datahowlab.ch/"
-client = DataHowLabClient(auth_key=key, base_url=your_url, verify_ssl = True)
+client = DataHowLabClient(auth_key=key, base_url=your_url)
 ```
-
-*Note*: the parameter `verify_ssl` of `DataHowLabClient` controls whether the SSL certificates are verified (verification is enabled by default). Disabling SSL verification should only be done in controlled environments, such as on premise deployments with trusted servers.
 
 ### Data Accessing 
 
@@ -184,4 +176,67 @@ data = np.genfromtxt("example.csv", delimiter=',')
 # next, use the selected model to predict you outputs using the loaded spectra
 predictions = model.predict(data)
 
+```
+
+## Configuration
+### SSL/TLS Certificates
+When dealing with on-premises deployments, it's common to encounter scenarios where self-signed certificates
+or certificates issued by custom certification authorities (CAs) are used.
+These certificates ensure secure communication within the internal network, but they are not recognized by default
+by the standard certificate authorities that browsers and software libraries trust.
+
+Therefore, when making HTTPS requests to endpoints secured with these certificates, you need to explicitly tell
+your software to trust them. The SDK currently supports two ways to do this.
+
+#### Option 1: using the truststore library
+This should be the preferred option in scenarios where the certificate has been signed by a custom CA that is trusted
+on the machine where your application is running (e.g. your company laptop/server/workstation).
+
+[Truststore](https://pypi.org/project/truststore/) is a library which exposes native system
+certificate stores (ie "trust stores") and allows you to trust certificates issued by CAs already present in your
+native system trust store.
+
+Make sure to add `truststore` to your project dependencies or install it with `pip install truststore`.
+Then import the package and inject the system trust store at the beginning of your application, before you inizialize
+the `DataHowLabClient`:
+```python
+import truststore
+truststore.inject_into_ssl()
+
+from dhl_sdk import DataHowLabClient, APIKeyAuthentication
+
+key = APIKeyAuthentication("<KEY>")
+dhl_url = "<URL>"
+
+client = DataHowLabClient(auth_key=key, base_url=dhl_url)
+```
+
+#### Option 2: using the `verify_ssl` option
+If you're dealing with self-signed certificates that are not trusted by any CA, `DataHowLabClient`
+exposes a `verify_ssl` option to point to the certificate file or to entirely disable SSL/TLS verification.
+
+> :warning: Disabling SSL/TLS verification can expose you to significant security risks.
+Use this option only if you are working in a trusted network
+
+Assuming you have a self-signed certificate file named `certificate.pem`, use the following code to import it in your
+application to verify your requests.
+
+```python
+from dhl_sdk import DataHowLabClient, APIKeyAuthentication
+
+key = APIKeyAuthentication("<KEY>")
+dhl_url = "<URL>"
+cert_path = 'path/to/certificate.pem'
+
+client = DataHowLabClient(auth_key=key, base_url=dhl_url, verify_ssl=cert_path)
+```
+
+Alternatively, set `verify_ssl` to `False` (default value is `True`) to disable SSL/TLS verification.
+```python
+from dhl_sdk import DataHowLabClient, APIKeyAuthentication
+
+key = APIKeyAuthentication("<KEY>")
+dhl_url = "<URL>"
+
+client = DataHowLabClient(auth_key=key, base_url=dhl_url, verify_ssl=False)
 ```
