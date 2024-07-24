@@ -10,12 +10,13 @@ Classes:
     - DataHowLabClient: main client to interact with the DHL API
 """
 
-from typing import Any, Dict, Literal, Optional, Type, TypeVar
+from typing import Any, Dict, Literal, Optional, Type, TypeVar, Union
 from urllib.parse import urlencode
 
 import requests
 from requests import Response
 from requests.adapters import HTTPAdapter
+import urllib3
 from urllib3.util.retry import Retry
 
 from dhl_sdk._utils import VariableGroupCodes, urljoin
@@ -38,7 +39,9 @@ class Client:
     A client for interacting with the DataHowLab API.
     """
 
-    def __init__(self, auth_key: APIKeyAuthentication, base_url: str) -> None:
+    def __init__(
+        self, auth_key: APIKeyAuthentication, base_url: str, verify: bool = True
+    ) -> None:
         """
         Parameters
         ----------
@@ -54,10 +57,14 @@ class Client:
         """
         self.auth_key = auth_key
         self.base_url = base_url
-        self.session = Client._get_retry_requester(total_retries=5, backoff_factor=1)
+        self.session = Client._get_retry_requester(
+            total_retries=5, backoff_factor=1, verify=verify
+        )
 
     @staticmethod
-    def _get_retry_requester(total_retries=5, backoff_factor=1):
+    def _get_retry_requester(
+        total_retries: int = 5, backoff_factor: int = 1, verify: int = True
+    ):
         """Get the http session with retry strategy"""
         status_forcelist = [429, 502, 503, 504]
         allowed_methods = ["DELETE", "GET", "HEAD", "OPTIONS", "PUT", "TRACE"]
@@ -71,6 +78,7 @@ class Client:
 
         adapter = HTTPAdapter(max_retries=retry_strategy)
         http = requests.Session()
+        http.verify = verify
         http.mount("https://", adapter)
         http.mount("http://", adapter)
 
@@ -244,7 +252,12 @@ class DataHowLabClient:
 
     """
 
-    def __init__(self, auth_key: APIKeyAuthentication, base_url: str):
+    def __init__(
+        self,
+        auth_key: APIKeyAuthentication,
+        base_url: str,
+        verify_ssl: Union[bool, str] = True,
+    ):
         """
         Parameters
         ----------
@@ -252,13 +265,22 @@ class DataHowLabClient:
             An instance of the APIKeyAuthentication class containing the user's API key.
         base_url : str
             The URL address of the datahowlab application
+        verify_ssl : Union[bool, str], optional
+            Either a boolean, in which case it controls whether we verify the server's
+            TLS certificate, or a string, in which case it must be a path to a CA bundle
+            to use. For more info check the documentation for python's requests.request.
+            By default True.
 
         Returns
         -------
         NoneType
             None
         """
-        self._client = Client(auth_key, base_url)
+
+        if isinstance(verify_ssl, bool) and not verify_ssl:
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+        self._client = Client(auth_key, base_url, verify=verify_ssl)
 
     def get_projects(
         self,

@@ -386,7 +386,8 @@ class CultivationHistoricalPreprocessor(Preprocessor):
             list of dictionaries with instances for prediction
         """
 
-        input_variables = self.model.model_variables
+        input_variables = self.model.dataset.variables
+        model_variables = self.model.model_variables
 
         instances = [[]]
 
@@ -394,7 +395,7 @@ class CultivationHistoricalPreprocessor(Preprocessor):
 
         # order the dict according to Variables and insert timestamps and steps
         for key, value in self.inputs.copy().items():
-            for variable in input_variables:
+            for variable in model_variables:
                 if variable.matches_key(key):
                     formatted_inputs[variable.id] = {}
                     formatted_inputs[variable.id]["values"] = value
@@ -730,7 +731,7 @@ def groupcode_is_numeric(code: str):
     return code in [
         "Flows",
         "FeedConc",
-        "Inducer",
+        "Inducers",
         "W",
         "X",
     ]
@@ -743,4 +744,4 @@ def groupcode_is_output(code: str):
 
 def groupcode_is_timedependent(code: str):
     """Check if the group is time dependent for recipe only"""
-    return code in ["Flows", "W", "Inducer"]
+    return code in ["Flows", "W", "Inducers"]

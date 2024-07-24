@@ -368,13 +368,12 @@ class Variable(BaseModel, DataBaseEntity):
         -------
         Variable
             A new variable with the given parameters
-
         """
 
         var_dict = {
             "code": code,
             "name": name,
-            "description": description,
+            "description": description if description is not None else "",
             "variant": variable_type.variant_string,
             "measurementUnit": measurement_unit,
             "group": {
