@@ -492,7 +492,15 @@ class TestFileEntity(unittest.TestCase):
 
         variables = [mock_var1, mock_var2]
 
-        self.assertTrue(self.file.validate_import(variables))
+        self.assertTrue(
+            self.file.validate_import(
+                variables,
+                {
+                    "startTime": "1970-01-01T00:00:00Z",
+                    "endTime": "1970-01-02T01:00:00Z",
+                },
+            )
+        )
 
     def test_file_validation_failure(self):
         mock_var1 = Mock()

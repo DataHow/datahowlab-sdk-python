@@ -70,6 +70,8 @@ $ poetry shell
 
 For a more comprehensive example guide, check [HERE](examples.ipynb)
 
+For an overview of all the validations that the SDK performs when importing data, check [HERE](validations.md)
+
 ### Importing Package
 
 ```python
@@ -125,9 +127,9 @@ variable2 = client.create(variable2)
 run_data = {
             "EXv1": {
                 "timestamps": [
-                    0,
-                    86400,
-                    172800,
+                    1600674350,
+                    1600760750,
+                    1600847150,
 
                 ],
                 "values": [
@@ -138,7 +140,7 @@ run_data = {
             },
             "EXv2": {
                 "timestamps": [
-                    0],
+                    1600674350],
                 "values": [
                     "A"]
 
@@ -150,6 +152,10 @@ experiment = Experiment.new(name="SDK EXP", description="new experiment test for
 #if all validations are successful, your new experiment will be uploaded to the database using:
 client.create(experiment)
 ```
+
+Note: All timestamps in the new experiment must be in Unix Timestamp format (representing the number of seconds since the Unix epoch) and must be rounded to the nearest second. 
+Additionally, when adding data to a new experiment, the timestamps must fall within the experiment's defined `start_time` and `end_time` to be considered valid.
+
 
 
 ### Model Predictions

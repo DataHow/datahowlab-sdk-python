@@ -68,7 +68,15 @@ class DataBaseEntity(ABC):
 
 
 class VariableNumeric(BaseModel):
-    """Model for Numeric Variables"""
+    """Model for Variables that can be caracterized by a numeric value.
+
+    Attributes:
+        default: Default value
+        minimum: Minimum value
+        maximum: Maximum value
+        interpolation_method: Interpolation method for the variable
+
+    """
 
     default: Optional[float] = Field(default=None, alias="default")
     minimum: Optional[float] = Field(default=None, alias="min")
@@ -84,7 +92,13 @@ class VariableNumeric(BaseModel):
 
 
 class VariableCategorical(BaseModel):
-    """Model for Categorical Variables"""
+    """Model for Categorical Variables
+
+    Attributes:
+        default: Default value
+        strict: Strict mode (whether to allow only values from the categories)
+        categories: Categories for the variable
+    """
 
     default: Optional[str] = Field(default=None, alias="default")
     strict: Optional[bool] = Field(default=False, alias="strict")
@@ -97,7 +111,11 @@ class VariableCategorical(BaseModel):
 
 
 class VariableLogical(BaseModel):
-    """Model for Logical Variables"""
+    """Model for Logical Variables
+
+    Attributes:
+        default: Default value
+    """
 
     default: Optional[bool] = Field(default=None, alias="default")
 
@@ -108,7 +126,13 @@ class VariableLogical(BaseModel):
 
 
 class FlowVariableReference(BaseModel):
-    """Model for Flow Variable References"""
+    """Model for Flow Variable References with only the ID, used to serialize the data
+
+    Attributes:
+        measurement_id: ID of the measurement variable (X Variable)
+        concentration_id: ID of concentration variable (Feed Concentration)
+        fraction_id: ID of fraction
+    """
 
     measurement_id: str = Field(alias="measurementId")
     concentration_id: Optional[str] = Field(default=None, alias="concentrationId")
@@ -116,16 +140,64 @@ class FlowVariableReference(BaseModel):
 
 
 class VariableFlow(BaseModel):
-    """Model for Flow Variables"""
+    """Model for Flow Variables
+
+    Attributes:
+        flow_type: Type of flow variable - can be "bolus", "conti",
+            "mbolus", "mconti", "sampling", "bleed", "perfusion"
+        step_size: Step size for the flow variable
+        volume_id: Volume ID for the flow variable
+        references: References for the flow variable
+    """
 
     flow_type: Literal[
         "bolus", "conti", "mbolus", "mconti", "sampling", "bleed", "perfusion"
     ] = Field(default="bolus", alias="type")
-    step_size: Optional[float] = Field(default=None, alias="stepSize")
+    step_size: Optional[int] = Field(default=None, alias="stepSize")
     volume_id: Optional[str] = Field(default=None, alias="volumeId")
-    references: Optional[list[FlowVariableReference]] = Field(
-        default=None, alias="references"
-    )
+    references: list[FlowVariableReference] = Field(alias="references")
+
+    @staticmethod
+    def new(
+        flow_type: Literal[
+            "bolus", "conti", "mbolus", "mconti", "sampling", "bleed", "perfusion"
+        ],
+        variable_references: list[FlowVariableReference],
+        step_size: Optional[int] = None,
+        volume_variable_id: Optional[str] = None,
+    ) -> "VariableFlow":
+        """Create a new Flow Variable from user input
+
+        Parameters
+        ----------
+        flow_type : Literal["bolus", "conti", "mbolus", "mconti", "sampling", "bleed", "perfusion"]
+            Type of flow variable
+        variable_references : list[FlowVariableReference]
+            References for the flow variable. It must contain at least one reference.
+            Each Reference must be of type FlowVariableReference (or a dictionary
+            with the same keys)
+            FlowVariableReference contains the following keys:
+                - measurement_id: ID of the measurement variable (X Variable)
+                - concentration_id: ID of concentration variable (Feed Concentration)
+        step_size : Optional[int]
+            Step size for the flow variable in seconds. This is required for "conti", "mconti",
+            "bleed", "perfusion" types
+        volume_variable_id : Optional[str]
+            Variable ID of the Initial Bioreactor Volume
+        """
+
+        if flow_type in ["conti", "mconti", "bleed", "perfusion"]:
+            if not step_size:
+                raise NewEntityException(
+                    "Step size must be provided for 'conti', 'mconti', 'bleed', 'perfusion' types"
+                )
+
+        return VariableFlow(
+            type=flow_type,
+            stepSize=step_size,
+            volumeId=volume_variable_id,
+            references=variable_references,
+        )
 
     @property
     def variant_string(self) -> str:
@@ -133,27 +205,31 @@ class VariableFlow(BaseModel):
         return "flow"
 
 
-class VariantSpectrumXAxis(BaseModel):
+class VariableSpectrumXAxis(BaseModel):
     """Pydantic model for variant spectrum x axis"""
 
     dimension: Optional[int] = Field(default=None, alias="dimension")
     unit: Optional[str] = Field(default=None, alias="unit")
     min: Optional[float] = Field(default=None, alias="min")
     max: Optional[float] = Field(default=None, alias="max")
-    default: Optional[float] = Field(default=None, alias="default")
 
 
-class VariantSpectrumYAxis(BaseModel):
+class VariableSpectrumYAxis(BaseModel):
     """Pydantic model for variant spectrum y axis"""
 
     label: Optional[str] = Field(default=None, alias="label")
 
 
 class VariableSpectrum(BaseModel):
-    """Pydantic model for variant details spectrum"""
+    """Pydantic model for variant details spectrum
 
-    x_axis: Optional[VariantSpectrumXAxis] = Field(default=None, alias="xAxis")
-    y_axis: Optional[VariantSpectrumYAxis] = Field(default=None, alias="yAxis")
+    Attributes:
+        x_axis: X axis description (dimension, unit, min, max)
+        y_axis: Y axis description (label)
+    """
+
+    x_axis: Optional[VariableSpectrumXAxis] = Field(default=None, alias="xAxis")
+    y_axis: Optional[VariableSpectrumYAxis] = Field(default=None, alias="yAxis")
 
     @property
     def variant_string(self) -> str:
@@ -248,7 +324,7 @@ class Variable(BaseModel, DataBaseEntity):
                     raise ValueError(
                         (
                             f"Variant details not valid for {variant} variant."
-                            "Found: {data['variant_details'].variant_string}"
+                            f"Found: {data['variant_details'].variant_string}"
                         )
                     )
             except AttributeError as asc:
@@ -329,6 +405,15 @@ class Variable(BaseModel, DataBaseEntity):
         return response.status_code == 200
 
     @staticmethod
+    def get_valid_variable_groups(client: DataBaseClient) -> list[str]:
+        """Get the valid variable groups from the database
+
+        It is a helper function to assist with the creation of new variables.
+        """
+        group_codes = VariableGroupCodes(client._client).get_variable_group_codes()
+        return list(group_codes.keys())
+
+    @staticmethod
     def new(
         code: str,
         name: str,
@@ -369,6 +454,23 @@ class Variable(BaseModel, DataBaseEntity):
         Variable
             A new variable with the given parameters
         """
+
+        code = code.strip()
+        name = name.strip()
+        measurement_unit = measurement_unit.strip()
+        variable_group = variable_group.strip()
+
+        if code == "":
+            raise NewEntityException("Variable code can not be empty")
+
+        if name == "":
+            raise NewEntityException("Variable name can not be empty")
+
+        if measurement_unit == "":
+            raise NewEntityException("Measurement unit can not be empty")
+
+        if variable_group == "":
+            raise NewEntityException("Variable group can not be empty")
 
         var_dict = {
             "code": code,
@@ -432,6 +534,15 @@ class Product(BaseModel, DataBaseEntity):
 
         """
 
+        code = code.strip()
+        name = name.strip()
+
+        if code == "":
+            raise NewEntityException("Product code cannot be empty")
+
+        if name == "":
+            raise NewEntityException("Product name cannot be empty")
+
         if len(code) > 5:
             raise NewEntityException("Product code must be from 1 to 5 characters long")
 
@@ -460,10 +571,15 @@ class File(BaseModel):
         self._data = data["data"]
         self._validator = data["validator"]
 
-    def validate_import(self, variables: list[Variable]) -> bool:
+    def validate_import(
+        self, variables: list[Variable], variant_details: Optional[dict] = None
+    ) -> bool:
         """Validate if the file can be imported"""
         if self._validator.validate(
-            variables=variables, data=self._data, variant=self.variant
+            variables=variables,
+            data=self._data,
+            variant=self.variant,
+            variant_details=variant_details,
         ):
             self._data = self._validator.format_data(
                 variables=variables, data=self._data
@@ -606,6 +722,10 @@ class Recipe(BaseModel, DataBaseEntity):
 
         """
 
+        name = name.strip()
+        if name == "":
+            raise NewEntityException("Recipe name cannot be empty")
+
         # Create a new Data File
         file = File(
             name=name,
@@ -675,7 +795,7 @@ class Experiment(BaseModel, DataBaseEntity):
         if not self._validator.validate(entity=self, client=client):
             return False
 
-        if self.file_data.validate_import(self.variables):
+        if self.file_data.validate_import(self.variables, self.variant_details):
             file_id = self.file_data.create_file(client)
 
         if not file_id:
@@ -797,6 +917,10 @@ class Experiment(BaseModel, DataBaseEntity):
             A new experiment with the given parameters
 
         """
+
+        name = name.strip()
+        if name == "":
+            raise NewEntityException("Experiment name cannot be empty")
 
         if variant == "run" and (not start_time or not end_time):
             raise NewEntityException(

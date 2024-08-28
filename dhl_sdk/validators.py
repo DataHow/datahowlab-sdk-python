@@ -3,6 +3,7 @@
 # pylint: disable=missing-function-docstring, arguments-differ
 # pylint: disable=missing-class-docstring, protected-access
 
+from datetime import datetime
 import math
 import warnings
 from abc import ABC, abstractmethod
@@ -36,12 +37,24 @@ class Group(Protocol):
     code: str
 
 
+class FlowReferences(Protocol):
+    measurement_id: str
+    concentration_id: Optional[str]
+    fraction_id: Optional[str]
+
+
+class FlowVariableDetails(Protocol):
+    references: list[FlowReferences]
+
+
 class Variable(Protocol):
     id: str
     code: str
     name: str
     group: Group
-    measurement_unit: str
+    variant: str
+    variant_details: Optional[Union[Any, FlowVariableDetails]]
+    measurement_unit: Optional[str]
     _validator: AbstractValidator
 
 
@@ -128,6 +141,64 @@ class VariableValidator(AbstractValidator):
         # Validate if measurement unit is present
         if entity.measurement_unit is None:
             validation_errors.append("The measurement unit must be present")
+
+        # missing variant validation
+        if entity.variant == "flow":
+            references = entity.variant_details.references
+            if references is None:
+                validation_errors.append(
+                    "Flow variables must have a list of references"
+                )
+
+            for reference in references:
+                if not reference.measurement_id:
+                    validation_errors.append(
+                        "Variable Flow references must have"
+                        " a reference to a X variable (measurement_id)"
+                    )
+                else:
+                    measurement_id = reference.measurement_id
+                    response = client.get(f"{VARIABLES_URL}/{measurement_id}")
+                    if response.status_code != 200:
+                        validation_errors.append(
+                            f"Variable with id {measurement_id} does not exist."
+                            " Please make sure you are using a variable that is"
+                            " already in the database"
+                        )
+                    else:
+                        measurement = response.json()
+                        if measurement["group"]["code"] != "X":
+                            validation_errors.append(
+                                f"Variable with id {measurement_id} must be a "
+                                "X variable to be valid as a reference"
+                            )
+
+                if reference.concentration_id:
+                    concentration_id = reference.concentration_id
+                    response = client.get(f"{VARIABLES_URL}/{concentration_id}")
+                    if response.status_code != 200:
+                        validation_errors.append(
+                            f"Variable with id {concentration_id} does not exist."
+                            " Please make sure you are using a variable that is "
+                            "already in the database"
+                        )
+                    else:
+                        concentration = response.json()
+                        if concentration["group"]["code"] != "FeedConc":
+                            validation_errors.append(
+                                f"Variable with id {concentration_id} must be a "
+                                "Feed Concentration variable to be valid as a reference"
+                            )
+
+                if reference.fraction_id:
+                    fraction_id = reference.fraction_id
+                    response = client.get(f"{VARIABLES_URL}/{fraction_id}")
+                    if response.status_code != 200:
+                        validation_errors.append(
+                            f"Variable with id {fraction_id} does not exist."
+                            " Please make sure you are using a variable that is "
+                            "already in the database"
+                        )
 
         if validation_errors:
             raise ImportValidationException("\n".join(validation_errors))
@@ -238,7 +309,11 @@ class AbstractFileValidator(ABC):
 
     @classmethod
     @abstractmethod
-    def format_data(cls, variables: list[Variable], data: Any) -> Any:
+    def format_data(
+        cls,
+        variables: list[Variable],
+        data: Any,
+    ) -> Any:
         """Format the file data"""
 
     @abstractmethod
@@ -457,7 +532,11 @@ class ExperimentFileValidator(AbstractFileValidator):
         return data
 
     def validate(
-        self, variables: list[Variable], data: Any, variant: str = "run"
+        self,
+        variables: list[Variable],
+        data: Any,
+        variant: str = "run",
+        variant_details: Optional[dict] = None,
     ) -> bool:
         """Validate the file for importing"""
         validation_errors = []
@@ -479,7 +558,7 @@ class ExperimentFileValidator(AbstractFileValidator):
                 validation_errors.append(
                     (
                         f"Variable {variable.code} data must be a dictionary with"
-                        "the mandatory fields 'timestamps' and 'values'"
+                        f"the mandatory fields {sample_id} and 'values'"
                     )
                 )
                 continue
@@ -507,6 +586,46 @@ class ExperimentFileValidator(AbstractFileValidator):
                     )
                 )
                 continue
+
+            # validations only for run variant
+            if sample_id == "timestamps":
+                # check if timestamps are sorted
+                if not all(ids[i] < ids[i + 1] for i in range(len(ids) - 1)):
+                    validation_errors.append(
+                        f"Variable {variable.code} timestamps must be sorted"
+                    )
+                    continue
+
+                if not variant_details:
+                    validation_errors.append(
+                        "Start and end time are required for the experiment import."
+                    )
+                    continue
+
+                start_time = variant_details.get("startTime", None)
+                end_time = variant_details.get("endTime", None)
+
+                if not start_time or not end_time:
+                    validation_errors.append(
+                        "Start and end time are required for the experiment import"
+                    )
+                    continue
+
+                start_timestamp = int(
+                    datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%SZ").timestamp()
+                )
+                end_timestamp = int(
+                    datetime.strptime(end_time, "%Y-%m-%dT%H:%M:%SZ").timestamp()
+                )
+
+                # check if all timestamps are within the start and end time
+                if ids[0] < start_timestamp or ids[-1] > end_timestamp:
+                    validation_errors.append(
+                        f"Variable {variable.code} timestamps must be within the start and "
+                        "end time of the experiment to be correctly tabularized. "
+                        " Please modify the timestamps or the start and end time of the experiment"
+                    )
+                    continue
 
         if validation_errors:
             raise ImportValidationException("\n".join(validation_errors))

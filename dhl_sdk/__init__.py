@@ -11,7 +11,10 @@ __all__ = [
     "VariableNumeric",
     "VariableLogical",
     "VariableFlow",
+    "FlowVariableReference",
     "VariableSpectrum",
+    "VariableSpectrumXAxis",
+    "VariableSpectrumYAxis",
 ]
 
 from dhl_sdk.authentication import APIKeyAuthentication
@@ -23,7 +26,10 @@ from dhl_sdk.db_entities import (
     Variable,
     VariableCategorical,
     VariableFlow,
+    FlowVariableReference,
     VariableLogical,
     VariableNumeric,
     VariableSpectrum,
+    VariableSpectrumXAxis,
+    VariableSpectrumYAxis,
 )
