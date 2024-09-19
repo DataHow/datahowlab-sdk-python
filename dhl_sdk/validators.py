@@ -14,7 +14,13 @@ from dhl_sdk._input_processing import (
     groupcode_is_timedependent,
     variant_is_numeric,
 )
-from dhl_sdk._utils import FILES_URL, PRODUCTS_URL, VARIABLES_URL, is_date_in_format
+from dhl_sdk._utils import (
+    EXPERIMENTS_URL,
+    FILES_URL,
+    PRODUCTS_URL,
+    VARIABLES_URL,
+    is_date_in_format,
+)
 from dhl_sdk.crud import Client, CRUDClient
 from dhl_sdk.exceptions import ImportValidationException
 
@@ -73,6 +79,7 @@ class File(Protocol):
 
 class Experiment(Protocol):
     id: str
+    name: str
     product: Product
     variables: list[Variable]
     file_data: Any
@@ -86,6 +93,7 @@ class Experiment(Protocol):
 
 class Recipe(Protocol):
     id: str
+    name: str
     product: Product
     variables: list[Variable]
     file_data: Any
@@ -350,6 +358,11 @@ class RecipeFileValidator(AbstractFileValidator):
                     ]
                     data[variable.code]["values"] = [data[variable.code]["values"][0]]
 
+            if variable.variant == "categorical":
+                data[variable.code]["values"] = [
+                    str(value) for value in data[variable.code]["values"]
+                ]
+
         return data
 
     def validate(self, variables: list[Variable], data: Any) -> bool:
@@ -527,8 +540,15 @@ class ExperimentFileValidator(AbstractFileValidator):
     """Validator for Files"""
 
     @classmethod
-    def format_data(cls, variables: list, data: Any) -> Any:
+    def format_data(cls, variables: list[Variable], data: Any) -> Any:
         """Format the file data"""
+
+        for variable in variables:
+            if variable.variant == "categorical":
+                data[variable.code]["values"] = [
+                    str(value) for value in data[variable.code]["values"]
+                ]
+
         return data
 
     def validate(
@@ -586,6 +606,22 @@ class ExperimentFileValidator(AbstractFileValidator):
                     )
                 )
                 continue
+
+            if variant_is_numeric(variable.variant):
+                if not all(isinstance(value, (int, float)) for value in values):
+                    validation_errors.append(
+                        f"Values must be numeric for variable {variable.code}"
+                        f" of variant {variable.variant}"
+                    )
+                    continue
+
+            elif variable.variant == "logical":
+                if not all(isinstance(value, bool) for value in values):
+                    validation_errors.append(
+                        f"Values must be boolean for variable {variable.code}"
+                        f" of variant {variable.variant}"
+                    )
+                    continue
 
             # validations only for run variant
             if sample_id == "timestamps":
@@ -782,6 +818,18 @@ class ExperimentValidator(AbstractValidator):
                 f"Experiment {entity.name} is already present in the DB. Skipping import."
             )
             return False
+
+        # Validate if experiment name already exists
+        query_params = {
+            "filterBy[name]": entity.name,
+            "archived": "false",
+        }
+
+        response = client.get(EXPERIMENTS_URL, query_params=query_params)
+        if int(response.headers.get("x-total-count")) > 0:  # type: ignore
+            raise ImportValidationException(
+                f"The experiment name {entity.name} already exists"
+            )
 
         if not entity.product._validator.is_imported(
             entity=entity.product, client=client
