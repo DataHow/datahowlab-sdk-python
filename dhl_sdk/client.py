@@ -19,6 +19,7 @@ from requests.adapters import HTTPAdapter
 import urllib3
 from urllib3.util.retry import Retry
 
+from dhl_sdk._constants import PROCESS_UNIT_MAP
 from dhl_sdk._utils import VariableGroupCodes, urljoin
 from dhl_sdk.authentication import APIKeyAuthentication
 from dhl_sdk.crud import Result
@@ -26,8 +27,8 @@ from dhl_sdk.db_entities import DataBaseEntity, Experiment, Product, Recipe
 from dhl_sdk.entities import CultivationProject, Project, SpectraProject, Variable
 
 PROJECT_TYPE_MAP = {
-    "cultivation": ("04a324da-13a5-470b-94a1-bda6ac87bb86", CultivationProject),
-    "spectroscopy": ("373c173a-1f23-4e56-874e-90ca4702ec0d", SpectraProject),
+    "04a324da-13a5-470b-94a1-bda6ac87bb86": CultivationProject,
+    "373c173a-1f23-4e56-874e-90ca4702ec0d": SpectraProject,
 }
 
 
@@ -206,14 +207,14 @@ class Client:
 
         Parameters
         ----------
+        project_type : T, optional
+            The type of project to retrieve, by default Project
         name : str, optional
             Filter projects by name, by default None
         unit_id : str, optional
             Filter projects by process unit ID, by default None
         offset : int, optional
             The offset for pagination, must be a non-negative integer, by default 0
-        project_type : T, optional
-            The type of project to retrieve, by default Project
 
         Returns
         -------
@@ -288,7 +289,7 @@ class DataHowLabClient:
         project_type: Literal["cultivation", "spectroscopy"] = "cultivation",
     ) -> Result[Project]:
         """
-        Retrieves an iterable of Spectra projects from the DHL API.
+        Retrieves an iterable of projects from the DHL API.
 
         Parameters
         ----------
@@ -305,12 +306,15 @@ class DataHowLabClient:
             An Iterable object containing the retrieved projects
         """
 
-        if project_type not in PROJECT_TYPE_MAP:
+        if project_type not in PROCESS_UNIT_MAP:
             raise ValueError(
-                f"Type must be one of {list(PROJECT_TYPE_MAP.keys())}, but got '{project_type}'"
+                f"Type must be one of {list(PROCESS_UNIT_MAP.keys())}, "
+                "but got '{project_type}'"
             )
 
-        (unit_id, project_class) = PROJECT_TYPE_MAP[project_type]
+        unit_id = PROCESS_UNIT_MAP[project_type]
+
+        project_class = PROJECT_TYPE_MAP[unit_id]
 
         return self._client.get_projects(
             name=name,
@@ -319,7 +323,9 @@ class DataHowLabClient:
         )
 
     def get_experiments(
-        self, name: Optional[str] = None, product: Optional[Product] = None
+        self,
+        name: Optional[str] = None,
+        product: Optional[Product] = None,
     ) -> Result[Experiment]:
         """Retrieve the available experiments for the user
 
