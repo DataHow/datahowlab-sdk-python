@@ -19,6 +19,7 @@ from requests.adapters import HTTPAdapter
 import urllib3
 from urllib3.util.retry import Retry
 
+from dhl_sdk._constants import PROCESS_FORMAT_MAP, PROCESS_UNIT_MAP
 from dhl_sdk._utils import VariableGroupCodes, urljoin
 from dhl_sdk.authentication import APIKeyAuthentication
 from dhl_sdk.crud import Result
@@ -26,8 +27,8 @@ from dhl_sdk.db_entities import DataBaseEntity, Experiment, Product, Recipe
 from dhl_sdk.entities import CultivationProject, Project, SpectraProject, Variable
 
 PROJECT_TYPE_MAP = {
-    "cultivation": ("04a324da-13a5-470b-94a1-bda6ac87bb86", CultivationProject),
-    "spectroscopy": ("373c173a-1f23-4e56-874e-90ca4702ec0d", SpectraProject),
+    "04a324da-13a5-470b-94a1-bda6ac87bb86": CultivationProject,
+    "373c173a-1f23-4e56-874e-90ca4702ec0d": SpectraProject,
 }
 
 
@@ -200,20 +201,23 @@ class Client:
         project_type: Type[T],
         name: Optional[str] = None,
         unit_id: Optional[str] = None,
+        format_id: Optional[str] = None,
         offset: int = 0,
     ) -> Result[T]:
         """Retrieve the available projects for the user
 
         Parameters
         ----------
+        project_type : T, optional
+            The type of project to retrieve, by default Project
         name : str, optional
             Filter projects by name, by default None
         unit_id : str, optional
             Filter projects by process unit ID, by default None
+        format_id : str, optional
+            Filter projects by process format ID, by default None
         offset : int, optional
             The offset for pagination, must be a non-negative integer, by default 0
-        project_type : T, optional
-            The type of project to retrieve, by default Project
 
         Returns
         -------
@@ -228,6 +232,7 @@ class Client:
             key: value
             for key, value in {
                 "filterBy[processUnitId]": unit_id,
+                "filterBy[processFormatId]": format_id,
                 "filterBy[name]": name,
             }.items()
             if value is not None
@@ -285,10 +290,11 @@ class DataHowLabClient:
     def get_projects(
         self,
         name: Optional[str] = None,
+        process_format: Literal["mammalian", "microbial"] = "mammalian",
         project_type: Literal["cultivation", "spectroscopy"] = "cultivation",
     ) -> Result[Project]:
         """
-        Retrieves an iterable of Spectra projects from the DHL API.
+        Retrieves an iterable of projects from the DHL API.
 
         Parameters
         ----------
@@ -296,6 +302,8 @@ class DataHowLabClient:
             A string to filter projects by name.
         offset : int, optional
             An integer representing the number of projects to skip before returning results.
+        process_format: Literal["mammalian", "microbial"], optional
+            The process format of the project, by default "mammalian"
         project_type : Literal["cultivation", "spectroscopy"], optional
             The type of project to retrieve, by default 'cultivation'
 
@@ -305,21 +313,34 @@ class DataHowLabClient:
             An Iterable object containing the retrieved projects
         """
 
-        if project_type not in PROJECT_TYPE_MAP:
+        if project_type not in PROCESS_UNIT_MAP:
             raise ValueError(
-                f"Type must be one of {list(PROJECT_TYPE_MAP.keys())}, but got '{project_type}'"
+                f"Type must be one of {list(PROCESS_UNIT_MAP.keys())}, "
+                "but got '{project_type}'"
             )
 
-        (unit_id, project_class) = PROJECT_TYPE_MAP[project_type]
+        if process_format not in PROCESS_FORMAT_MAP:
+            raise ValueError(
+                f"Format must be one of {list(PROCESS_FORMAT_MAP.keys())}, "
+                "but got '{process_format}'"
+            )
+
+        unit_id = PROCESS_UNIT_MAP[project_type]
+        format_id = PROCESS_FORMAT_MAP[process_format]
+
+        project_class = PROJECT_TYPE_MAP[unit_id]
 
         return self._client.get_projects(
             name=name,
             unit_id=unit_id,
+            format_id=format_id,
             project_type=project_class,
         )
 
     def get_experiments(
-        self, name: Optional[str] = None, product: Optional[Product] = None
+        self,
+        name: Optional[str] = None,
+        product: Optional[Product] = None,
     ) -> Result[Experiment]:
         """Retrieve the available experiments for the user
 

@@ -12,7 +12,7 @@ from dhl_sdk._input_processing import (
     _validate_spectra_format,
     format_predictions,
 )
-from dhl_sdk._utils import Instance, PredictResponse
+from dhl_sdk._utils import Instance, PredictionResponse, PredictionConfig
 from dhl_sdk.crud import Result
 from dhl_sdk.entities import Variable
 from dhl_sdk.exceptions import (
@@ -56,7 +56,7 @@ class TestSpectraUtils(unittest.TestCase):
 
     def test_format_predictions(self):
         predictions = [
-            PredictResponse(
+            PredictionResponse(
                 instances=[
                     [
                         None,
@@ -71,7 +71,7 @@ class TestSpectraUtils(unittest.TestCase):
                     ]
                 ]
             ),
-            PredictResponse(
+            PredictionResponse(
                 instances=[
                     [
                         None,
@@ -298,9 +298,11 @@ class TestCultivationUtils(unittest.TestCase):
             Variable(**var4),
         ]
 
+        self.prediction_config = PredictionConfig()
+
     def test_format_predictions(self):
         predictions = [
-            PredictResponse(
+            PredictionResponse(
                 instances=[
                     [
                         Instance(values=[1, 2, 3]),
@@ -310,7 +312,7 @@ class TestCultivationUtils(unittest.TestCase):
                     ]
                 ]
             ),
-            PredictResponse(
+            PredictionResponse(
                 instances=[
                     [
                         Instance(values=[1, 2, 3]),
@@ -338,13 +340,13 @@ class TestCultivationUtils(unittest.TestCase):
         timestamps = [1, 2, 3]
 
         processor = CultivationPropagationPreprocessor(
-            np.array(timestamps), "m", inputs, model
+            np.array(timestamps), "m", inputs, self.prediction_config, model
         )
         processor.validate()
         processor.timestamps = [60, 120, 180]
 
         processor = CultivationPropagationPreprocessor(
-            {"timestamps": [1, 2]}, "s", inputs, model
+            {"timestamps": [1, 2]}, "s", inputs, self.prediction_config, model
         )
         with self.assertRaises(InvalidTimestampsException) as ex:
             processor.validate()
@@ -352,7 +354,9 @@ class TestCultivationUtils(unittest.TestCase):
                 ex.exception.message.startswith("Timestamps must be a list of numbers")
             )
 
-        processor = CultivationPropagationPreprocessor([2], "s", inputs, model)
+        processor = CultivationPropagationPreprocessor(
+            [2], "s", inputs, self.prediction_config, model
+        )
         with self.assertRaises(InvalidTimestampsException) as ex:
             processor.validate()
             self.assertTrue(
@@ -361,7 +365,9 @@ class TestCultivationUtils(unittest.TestCase):
                 )
             )
 
-        processor = CultivationPropagationPreprocessor([1, 2], "s", inputs, model)
+        processor = CultivationPropagationPreprocessor(
+            [1, 2], "s", inputs, self.prediction_config, model
+        )
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
             self.assertTrue(
@@ -370,7 +376,9 @@ class TestCultivationUtils(unittest.TestCase):
                 )
             )
 
-        processor = CultivationPropagationPreprocessor([6, 4, 3], "s", inputs, model)
+        processor = CultivationPropagationPreprocessor(
+            [6, 4, 3], "s", inputs, self.prediction_config, model
+        )
 
         with self.assertRaises(InvalidTimestampsException) as ex:
             processor.validate()
@@ -378,11 +386,15 @@ class TestCultivationUtils(unittest.TestCase):
                 ex.exception.message.startswith("Timestamps must be in ascending order")
             )
 
-        processor = CultivationPropagationPreprocessor([1, 2, 3], "m", inputs, model)
+        processor = CultivationPropagationPreprocessor(
+            [1, 2, 3], "m", inputs, self.prediction_config, model
+        )
         processor.validate()
         self.assertEqual(processor.timestamps, [60, 120, 180])
 
-        processor = CultivationPropagationPreprocessor(["1", 2, 3], "h", inputs, model)
+        processor = CultivationPropagationPreprocessor(
+            ["1", 2, 3], "h", inputs, self.prediction_config, model
+        )
 
         with self.assertRaises(InvalidTimestampsException) as ex:
             processor.validate()
@@ -393,7 +405,7 @@ class TestCultivationUtils(unittest.TestCase):
             )
 
         processor = CultivationPropagationPreprocessor(
-            [1, 2, 3], "random", inputs, model
+            [1, 2, 3], "random", inputs, self.prediction_config, model
         )
         with self.assertRaises(InvalidTimestampsException) as ex:
             processor.validate()
@@ -403,14 +415,18 @@ class TestCultivationUtils(unittest.TestCase):
                 )
             )
 
-        processor = CultivationPropagationPreprocessor([-1, 2, 4], "h", inputs, model)
+        processor = CultivationPropagationPreprocessor(
+            [-1, 2, 4], "h", inputs, self.prediction_config, model
+        )
         with self.assertRaises(InvalidTimestampsException) as ex:
             processor.validate()
             self.assertTrue(
                 ex.exception.message.startswith("Timestamps must be positive")
             )
 
-        processor = CultivationPropagationPreprocessor([1, 2, 2], "h", inputs, model)
+        processor = CultivationPropagationPreprocessor(
+            [1, 2, 2], "h", inputs, self.prediction_config, model
+        )
         with self.assertRaises(InvalidTimestampsException) as ex:
             processor.validate()
             self.assertTrue(
@@ -422,12 +438,16 @@ class TestCultivationUtils(unittest.TestCase):
         inputs = {"var1": [10], "var2": [20], "var3": [1, 2, 3], "var4": [40]}
         timestamps = [1, 2, 3]
 
-        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, model)
+        processor = CultivationPropagationPreprocessor(
+            timestamps, "s", inputs, self.prediction_config, model
+        )
 
         processor.validate()
 
         inputs = {"var1": [10], "var3": [1, 2, 3], "var4": [40]}
-        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, model)
+        processor = CultivationPropagationPreprocessor(
+            timestamps, "s", inputs, self.prediction_config, model
+        )
 
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
@@ -437,7 +457,9 @@ class TestCultivationUtils(unittest.TestCase):
             )
 
         inputs = {"var1": [10], "var2": [20], "var3": [1], "var4": [40]}
-        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, model)
+        processor = CultivationPropagationPreprocessor(
+            timestamps, "s", inputs, self.prediction_config, model
+        )
 
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
@@ -448,12 +470,16 @@ class TestCultivationUtils(unittest.TestCase):
             )
 
         inputs = {"var1": [10], "var2": [20], "var3": [1, 3, 5]}
-        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, model)
+        processor = CultivationPropagationPreprocessor(
+            timestamps, "s", inputs, self.prediction_config, model
+        )
 
         processor.validate()
 
         inputs = {"var1": [10, 20], "var2": [20], "var3": [1, 3, 5]}
-        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, model)
+        processor = CultivationPropagationPreprocessor(
+            timestamps, "s", inputs, self.prediction_config, model
+        )
 
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
@@ -464,7 +490,9 @@ class TestCultivationUtils(unittest.TestCase):
             )
 
         inputs = {"var1": [10], "var2": [20], "var3": [1, "a", 5], "var4": [40, 50]}
-        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, model)
+        processor = CultivationPropagationPreprocessor(
+            timestamps, "s", inputs, self.prediction_config, model
+        )
 
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
@@ -475,7 +503,9 @@ class TestCultivationUtils(unittest.TestCase):
             )
 
         inputs = {"var1": ["a"], "var2": [20], "var3": [1, 3, 5], "var4": [40, 50]}
-        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, model)
+        processor = CultivationPropagationPreprocessor(
+            timestamps, "s", inputs, self.prediction_config, model
+        )
 
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
@@ -497,14 +527,14 @@ class TestCultivationUtils(unittest.TestCase):
         steps = [0, 1, 2]
 
         processor = CultivationHistoricalPreprocessor(
-            np.array(timestamps), "d", steps, inputs, model
+            np.array(timestamps), "d", steps, inputs, self.prediction_config, model
         )
         processor.validate()
         processor.timestamps = [86400, 172800, 259200]
 
         inputs = None
         processor = CultivationHistoricalPreprocessor(
-            timestamps, "d", steps, inputs, model
+            timestamps, "d", steps, inputs, self.prediction_config, model
         )
 
         with self.assertRaises(InvalidInputsException) as ex:
@@ -516,7 +546,7 @@ class TestCultivationUtils(unittest.TestCase):
 
         inputs = [10, 20, 30]
         processor = CultivationHistoricalPreprocessor(
-            timestamps, "d", steps, inputs, model
+            timestamps, "d", steps, inputs, self.prediction_config, model
         )
 
         with self.assertRaises(InvalidInputsException) as ex:
@@ -533,7 +563,7 @@ class TestCultivationUtils(unittest.TestCase):
             "var4": [40, 50, 60],
         }
         processor = CultivationHistoricalPreprocessor(
-            timestamps, "d", steps, inputs, model
+            timestamps, "d", steps, inputs, self.prediction_config, model
         )
 
         with self.assertRaises(InvalidInputsException) as ex:
@@ -550,7 +580,7 @@ class TestCultivationUtils(unittest.TestCase):
             "var4": [40, 50, 60],
         }
         processor = CultivationHistoricalPreprocessor(
-            timestamps, "d", steps, inputs, model
+            timestamps, "d", steps, inputs, self.prediction_config, model
         )
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
@@ -565,7 +595,7 @@ class TestCultivationUtils(unittest.TestCase):
             "var4": [40, 50, 60],
         }
         processor = CultivationHistoricalPreprocessor(
-            timestamps, "d", steps, inputs, model
+            timestamps, "d", steps, inputs, self.prediction_config, model
         )
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
@@ -587,7 +617,7 @@ class TestCultivationUtils(unittest.TestCase):
 
         steps = None
         processor = CultivationHistoricalPreprocessor(
-            timestamps, "d", steps, inputs, model
+            timestamps, "d", steps, inputs, self.prediction_config, model
         )
 
         with self.assertRaises(InvalidStepsException) as ex:
@@ -599,7 +629,7 @@ class TestCultivationUtils(unittest.TestCase):
 
         steps = [0, 1, 2, 3]
         processor = CultivationHistoricalPreprocessor(
-            timestamps, "d", steps, inputs, model
+            timestamps, "d", steps, inputs, self.prediction_config, model
         )
 
         with self.assertRaises(InvalidStepsException) as ex:
@@ -611,7 +641,7 @@ class TestCultivationUtils(unittest.TestCase):
 
         steps = [1, 2, 3]
         processor = CultivationHistoricalPreprocessor(
-            timestamps, "d", steps, inputs, model
+            timestamps, "d", steps, inputs, self.prediction_config, model
         )
 
         with self.assertRaises(InvalidStepsException) as ex:
@@ -623,7 +653,7 @@ class TestCultivationUtils(unittest.TestCase):
 
         steps = [0, 2, 1]
         processor = CultivationHistoricalPreprocessor(
-            timestamps, "d", steps, inputs, model
+            timestamps, "d", steps, inputs, self.prediction_config, model
         )
 
         with self.assertRaises(InvalidStepsException) as ex:
@@ -643,7 +673,9 @@ class TestCultivationUtils(unittest.TestCase):
         }
         timestamps = [0, 1, 2, 3]
 
-        processor = CultivationPropagationPreprocessor(timestamps, "h", inputs, model)
+        processor = CultivationPropagationPreprocessor(
+            timestamps, "h", inputs, self.prediction_config, model
+        )
 
         processor.validate()
         request = processor.format()
@@ -670,7 +702,7 @@ class TestCultivationUtils(unittest.TestCase):
         steps = [0, 1, 2]
 
         processor = CultivationHistoricalPreprocessor(
-            timestamps, "d", steps, inputs, model
+            timestamps, "d", steps, inputs, self.prediction_config, model
         )
 
         processor.validate()

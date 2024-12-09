@@ -6,7 +6,7 @@ from typing import Optional, Protocol, Union
 
 import numpy as np
 
-from dhl_sdk._utils import Instance, PredictRequest
+from dhl_sdk._utils import Instance, PredictionRequest
 from dhl_sdk.exceptions import InvalidSpectraException
 
 # Type Aliases
@@ -123,7 +123,7 @@ def _convert_to_request(
                         )
                         break
 
-        json_data = PredictRequest(instances=[instance]).model_dump(by_alias=True)
+        json_data = PredictionRequest(instances=[instance]).model_dump(by_alias=True)
         request_data.append(json_data)
 
     return request_data

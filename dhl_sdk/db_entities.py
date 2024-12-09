@@ -23,16 +23,22 @@ from typing import Literal, Optional, Union
 from pydantic import BaseModel, Field, PrivateAttr, model_validator
 from requests import Response
 
-from dhl_sdk._utils import (
+from dhl_sdk._constants import (
     EXPERIMENTS_URL,
     FILES_URL,
+    PROCESS_FORMAT_MAP,
+    PROCESS_UNIT_MAP,
     PRODUCTS_URL,
     RECIPES_URL,
     VARIABLES_URL,
-    VariableGroupCodes,
 )
+from dhl_sdk._utils import VariableGroupCodes
 from dhl_sdk.crud import Client, CRUDClient, DataBaseClient
-from dhl_sdk.exceptions import ImportValidationException, NewEntityException
+from dhl_sdk.exceptions import (
+    ImportValidationException,
+    InvalidVariantException,
+    NewEntityException,
+)
 from dhl_sdk.importers import RunFileImporter, SpectraFileImporter
 from dhl_sdk.validators import (
     AbstractFileValidator,
@@ -597,9 +603,8 @@ class File(BaseModel):
             include={"name": True, "description": True},
         )
 
-        if self.type == "run":
-            suffix = "Data"
-        elif self.type == "spectra":
+        suffix = "Data"
+        if self.type == "spectra":
             suffix = "Spectra"
 
         if self.variant == "run":
@@ -647,6 +652,8 @@ class Recipe(BaseModel, DataBaseEntity):
     id: Optional[str] = Field(default=None, alias="id")
     name: str = Field(alias="name")
     description: Optional[str] = Field(default=None, alias="description")
+    process_unit_id: Optional[str] = Field(default=None, alias="processUnitId")
+    process_format_id: Optional[str] = Field(default=None, alias="processFormatId")
     product: Product = Field(alias="product")
     duration: Optional[int] = Field(default=None, alias="duration")
     variables: list[Variable] = Field(alias="variables")
@@ -678,6 +685,7 @@ class Recipe(BaseModel, DataBaseEntity):
         if not self._validator.validate(entity=self, client=client):
             return False
 
+        file_id = None
         if self.file_data.validate_import(self.variables):
             file_id = self.file_data.create_file(client)
 
@@ -760,11 +768,18 @@ class Experiment(BaseModel, DataBaseEntity):
     id: Optional[str] = Field(default=None, alias="id")
     name: str = Field(alias="name")
     description: str = Field(alias="description")
+    process_unit_id: Optional[str] = Field(
+        default=PROCESS_UNIT_MAP["cultivation"], alias="processUnitId"
+    )
+    process_format_id: Optional[str] = Field(
+        default=PROCESS_FORMAT_MAP["mammalian"], alias="processFormatId"
+    )
     product: Product = Field(alias="product")
     subunit: str = Field(default="", alias="subunit")
     variables: list[Variable] = Field(alias="variables")
     instances: list[Instances] = Field(alias="instances")
     variant: Literal["run", "samples"] = Field(default="run", alias="variant")
+
     variant_details: Optional[dict] = None
     file_data: Optional[File] = None
 
@@ -778,6 +793,7 @@ class Experiment(BaseModel, DataBaseEntity):
                 "name": True,
                 "description": True,
                 "subunit": True,
+                "processFormatId": True,
                 "product": {"id"},
                 "variables": {"__all__": {"id"}},
                 "instances": {"__all__": {"column", "fileId"}},
@@ -795,6 +811,7 @@ class Experiment(BaseModel, DataBaseEntity):
         if not self._validator.validate(entity=self, client=client):
             return False
 
+        file_id = None
         if self.file_data.validate_import(self.variables, self.variant_details):
             file_id = self.file_data.create_file(client)
 
@@ -863,6 +880,8 @@ class Experiment(BaseModel, DataBaseEntity):
                     spectra_ids = "timestamps"
                 elif self.variant == "samples":  # samples variant
                     spectra_ids = "sampleId"
+                else:
+                    raise InvalidVariantException()
 
                 data_rows = [row[1:] for row in csv_data]
                 experiment_data["spectra"] = {
@@ -878,9 +897,10 @@ class Experiment(BaseModel, DataBaseEntity):
         description: str,
         product: Product,
         variables: list[Variable],
-        data_type: Literal["run", "spectra"],
         data: dict,
-        variant: Literal["run", "samples"],
+        process_format: Literal["mammalian", "microbial"] = "mammalian",
+        data_type: Literal["run", "spectra"] = "run",
+        variant: Literal["run", "samples"] = "run",
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
     ) -> "Experiment":
@@ -903,6 +923,8 @@ class Experiment(BaseModel, DataBaseEntity):
             The data must be a dictionary with the variable codes as keys.
             For "spectra" variant, the data must be a dictionary with the variable codes
                 as keys and a list of lists of values as values.
+        process_format : Literal["mammalian", "microbial"]
+            The format of the process. Defaults to "mammalian".
         variant : Literal["run", "samples"]
             Variant of the experiment ("run" or "samples").
             "run" is for time series data and "samples" is for sampled data
@@ -927,9 +949,17 @@ class Experiment(BaseModel, DataBaseEntity):
                 "Start time and end time must be provided for 'run' variant"
             )
 
-        file_validator = ExperimentFileValidator()
-        if data_type == "spectra":
-            file_validator = SpectraFileValidator()
+        if process_format not in PROCESS_FORMAT_MAP:
+            raise ValueError(
+                f"Format must be one of {list(PROCESS_FORMAT_MAP.keys())}, "
+                "but got '{process_format}'"
+            )
+        format_id = PROCESS_FORMAT_MAP[process_format]
+
+        file_validator_class = (
+            SpectraFileValidator if data_type == "spectra" else ExperimentFileValidator
+        )
+        file_validator = file_validator_class()
 
         # Create a new Data File
         file = File(
@@ -941,24 +971,22 @@ class Experiment(BaseModel, DataBaseEntity):
             validator=file_validator,
         )
 
-        if variant == "run":
-            variant_details = {"startTime": start_time, "endTime": end_time}
-        else:
-            variant_details = {}
+        variant_details = (
+            {"startTime": start_time, "endTime": end_time} if variant == "run" else {}
+        )
 
         # Create a new Experiment
-        experiment = Experiment(
+        return Experiment(
             name=name,
             description=description,
             product=product,
+            processFormatId=format_id,
             variables=variables,
             instances=[],
             file_data=file,
             variant=variant,
             variant_details=variant_details,
         )
-
-        return experiment
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["Experiment"]:

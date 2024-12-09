@@ -1,9 +1,12 @@
 """This module contains utility functions for data validation and formatting in the SDK
 """
 
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
+# pylint: disable=too-few-public-methods
+
 import math
 
-# pylint: disable=too-few-public-methods
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, Protocol, Union
@@ -16,7 +19,13 @@ from dhl_sdk._spectra_utils import (
     _convert_to_request,
     _validate_spectra_format,
 )
-from dhl_sdk._utils import Predictions, PredictResponse, validate_list_elements
+from dhl_sdk._utils import (
+    PredictionRequest,
+    PredictionConfig,
+    Predictions,
+    PredictionResponse,
+    validate_list_elements,
+)
 from dhl_sdk.exceptions import (
     InvalidInputsException,
     InvalidSpectraException,
@@ -26,16 +35,12 @@ from dhl_sdk.exceptions import (
 
 
 class Group(Protocol):
-    # pylint: disable=missing-class-docstring
-    # pylint: disable=missing-function-docstring
     @property
     def code(self) -> str:
         ...
 
 
 class Variable(Protocol):
-    # pylint: disable=missing-class-docstring
-    # pylint: disable=missing-function-docstring
     @property
     def group(self) -> Group:
         ...
@@ -53,16 +58,12 @@ class Variable(Protocol):
 
 
 class Dataset(Protocol):
-    # pylint: disable=missing-class-docstring
-    # pylint: disable=missing-function-docstring
     @property
     def variables(self) -> list[Variable]:
         ...
 
 
 class Model(Protocol):
-    # pylint: disable=missing-class-docstring
-    # pylint: disable=missing-function-docstring
     @property
     def dataset(self) -> Dataset:
         ...
@@ -230,6 +231,7 @@ class CultivationPropagationPreprocessor(Preprocessor):
     timestamps: Union[list[Union[int, float]], np.ndarray]
     timestamps_unit: str
     inputs: dict[str, list]
+    prediction_config: PredictionConfig
     model: Model
 
     def validate(self) -> bool:
@@ -311,10 +313,9 @@ class CultivationPropagationPreprocessor(Preprocessor):
             else:
                 instances[0].append(None)
 
-        json_data = {
-            "instances": instances,
-            "config": {"startingIndex": 0},
-        }
+        json_data = PredictionRequest(
+            instances=instances, config=self.prediction_config
+        ).model_dump(by_alias=True, exclude_none=True, exclude=["sampleId", "steps"])
 
         return [json_data]
 
@@ -327,6 +328,7 @@ class CultivationHistoricalPreprocessor(Preprocessor):
     timestamps_unit: str
     steps: list[Optional[int]]
     inputs: dict[str, list]
+    prediction_config: PredictionConfig
     model: Model
 
     def validate(self) -> bool:
@@ -411,14 +413,16 @@ class CultivationHistoricalPreprocessor(Preprocessor):
             else:
                 instances[0].append(None)
 
-        json_data = {"instances": instances, "config": {"startingIndex": 0}}
+        json_data = PredictionRequest(
+            instances=instances, config=self.prediction_config
+        ).model_dump(by_alias=True, exclude_none=True, exclude="sampleId")
 
         return [json_data]
 
 
 def _validate_upstream_timestamps(
     timestamps: list[Union[int, float]], timestamps_unit: str
-) -> list[Union[int, float]]:
+) -> list[int]:
     """Validate the timestamps for upstream prediction.
 
     This function performs a series of validations on the provided timestamps to ensure they meet
@@ -473,25 +477,35 @@ def _validate_upstream_timestamps(
         raise InvalidTimestampsException("Timestamps must be positive")
 
     # Convert timestamps to seconds
-    if timestamps_unit.lower() in ("s", "sec", "secs", "seconds"):
-        return timestamps
-    if timestamps_unit.lower() in ("m", "min", "mins", "minutes"):
-        factor = 60
-        return [timestamp * factor for timestamp in timestamps]
-    if timestamps_unit.lower() in ("h", "hour", "hours"):
-        factor = 60 * 60
-        return [timestamp * factor for timestamp in timestamps]
-    if timestamps_unit.lower() in ("d", "day", "days"):
-        factor = 60 * 60 * 24
-        return [timestamp * factor for timestamp in timestamps]
+    unit_factors = {
+        "s": 1,
+        "sec": 1,
+        "secs": 1,
+        "seconds": 1,
+        "m": 60,
+        "min": 60,
+        "mins": 60,
+        "minutes": 60,
+        "h": 3600,
+        "hour": 3600,
+        "hours": 3600,
+        "d": 86400,
+        "day": 86400,
+        "days": 86400,
+    }
 
-    raise InvalidTimestampsException(
-        f"Invalid timestamps unit '{timestamps_unit}' found."
-    )
+    factor = unit_factors.get(timestamps_unit.lower())
+    if factor is None:
+        raise InvalidTimestampsException(
+            f"Invalid timestamps unit '{timestamps_unit}' found."
+        )
+
+    # Apply the factor and convert to int
+    return [int(timestamp * factor) for timestamp in timestamps]
 
 
 def _validate_historical_steps(
-    steps: list[Optional[int]], timestamps: list[Union[int, float]]
+    steps: list[Optional[int]], timestamps: list[int]
 ) -> None:
     """Validate the steps for historical prediction.
 
@@ -502,7 +516,7 @@ def _validate_historical_steps(
     ----------
     steps : list[Optional[int]]
         List of steps, if None it means that a timestamp is not annotated with a step
-    timestamps : list[Union[int, float]]
+    timestamps : list[int]
         List of timestamps corresponding to the steps
 
     Raises
@@ -565,7 +579,7 @@ def _validate_upstream_inputs(inputs: dict[str, list]) -> None:
 
 
 def _validate_propagation_with_variables(
-    timestamps: list[Union[int, float]], inputs: dict[str, list], model: Model
+    timestamps: list[int], inputs: dict[str, list], model: Model
 ) -> None:
     """
     Validate the inputs based on the provided timestamps and model.
@@ -676,12 +690,14 @@ def _validate_historical_with_variables(
                 )
 
 
-def format_predictions(predictions: list[PredictResponse], model: Model) -> Predictions:
+def format_predictions(
+    predictions: list[PredictionResponse], model: Model
+) -> Predictions:
     """Format a list of predictions into a dictionary.
 
     Parameters
     ----------
-    predictions : List[PredictResponse]
+    predictions : List[PredictionResponse]
         list of predictions from the API.
     model : Model
         Model used for prediction

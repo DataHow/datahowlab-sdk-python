@@ -9,21 +9,11 @@ from typing import Optional, Union
 import numpy as np
 from pydantic import BaseModel, Field, model_validator
 
+from dhl_sdk._constants import GROUPS_URL
 from dhl_sdk.crud import Client
+from dhl_sdk.exceptions import InvalidConfidenceException
 
 Predictions = dict[str, dict[str, list[float]]]
-
-PRODUCTS_URL = "api/db/v2/products"
-RECIPES_URL = "api/db/v2/recipes"
-FILES_URL = "api/db/v2/files"
-EXPERIMENTS_URL = "api/db/v2/experiments"
-VARIABLES_URL = "api/db/v2/variables"
-GROUPS_URL = "api/db/v2/groups"
-PROJECTS_URL = "api/db/v2/projects"
-DATASETS_URL = "api/db/v2/datasets"
-MODELS_URL = "api/db/v2/pipelineJobs"
-TEMPLATES_URL = "api/db/v2/pipelineJobTemplates"
-PREDICT_URL = "api/pipeline/v1/predictors"
 
 
 class VariableGroupCodes:
@@ -54,11 +44,13 @@ class VariableGroupCodes:
 
 class Instance(BaseModel):
     """Pydantic class representing the Instance
-    It is used to type check the request"""
+    Used to type check the request"""
 
-    timestamps: Optional[list[float]] = Field(default=None, alias="timestamps")
+    timestamps: Optional[list[int]] = Field(default=None, alias="timestamps")
     sample_id: Optional[list[str]] = Field(default=None, alias="sampleId")
+    steps: Optional[list[int]] = Field(default=None, alias="steps")
     values: Union[list[float], list[list[float]]]
+
     high_values: Optional[Union[list[float], list[list[float]]]] = Field(
         default=None, alias="highValues"
     )
@@ -74,15 +66,38 @@ class Instance(BaseModel):
         return self
 
 
-class PredictRequest(BaseModel):
+class PredictionConfig(BaseModel):
+    """Prediction configurations"""
+
+    starting_index: int = Field(alias="startingIndex", default=0)
+    high_values_percentile: float = Field(alias="highValuesPercentile", default=90)
+    low_values_percentile: float = Field(alias="lowValuesPercentile", default=10)
+
+    @staticmethod
+    def new(model_confidence: float, starting_index: int = 0) -> "PredictionConfig":
+        """Create a new Prediction Configuration object"""
+        if not 1.0 < model_confidence < 99.0:
+            raise InvalidConfidenceException()
+
+        high_value = 50.0 + model_confidence / 2
+        low_value = 50.0 - model_confidence / 2
+
+        return PredictionConfig(
+            startingIndex=starting_index,
+            highValuesPercentile=high_value,
+            lowValuesPercentile=low_value,
+        )
+
+
+class PredictionRequest(BaseModel):
     """Pydantic class representing the expected Predict Request"""
 
     instances: list[list[Optional[Instance]]]
     metadata: Optional[dict] = None
-    config: Optional[dict] = None
+    config: Optional[PredictionConfig] = None
 
 
-class PredictResponse(BaseModel):
+class PredictionResponse(BaseModel):
     """Pydantic class representing the expected Predict Response"""
 
     instances: list[list[Optional[Instance]]]
