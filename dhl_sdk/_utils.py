@@ -66,7 +66,7 @@ class Instance(BaseModel):
         return self
 
 
-class PredictionConfig(BaseModel):
+class PredictionRequestConfig(BaseModel):
     """Prediction configurations"""
 
     starting_index: int = Field(alias="startingIndex", default=0)
@@ -74,7 +74,9 @@ class PredictionConfig(BaseModel):
     low_values_percentile: float = Field(alias="lowValuesPercentile", default=10)
 
     @staticmethod
-    def new(model_confidence: float, starting_index: int = 0) -> "PredictionConfig":
+    def new(
+        model_confidence: float, starting_index: int = 0
+    ) -> "PredictionRequestConfig":
         """Create a new Prediction Configuration object"""
         if not 1.0 < model_confidence < 99.0:
             raise InvalidConfidenceException()
@@ -82,7 +84,7 @@ class PredictionConfig(BaseModel):
         high_value = 50.0 + model_confidence / 2
         low_value = 50.0 - model_confidence / 2
 
-        return PredictionConfig(
+        return PredictionRequestConfig(
             startingIndex=starting_index,
             highValuesPercentile=high_value,
             lowValuesPercentile=low_value,
@@ -94,7 +96,7 @@ class PredictionRequest(BaseModel):
 
     instances: list[list[Optional[Instance]]]
     metadata: Optional[dict] = None
-    config: Optional[PredictionConfig] = None
+    config: Optional[PredictionRequestConfig] = None
 
 
 class PredictionResponse(BaseModel):

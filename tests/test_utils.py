@@ -12,7 +12,7 @@ from dhl_sdk._input_processing import (
     _validate_spectra_format,
     format_predictions,
 )
-from dhl_sdk._utils import Instance, PredictionResponse, PredictionConfig
+from dhl_sdk._utils import Instance, PredictionResponse, PredictionRequestConfig
 from dhl_sdk.crud import Result
 from dhl_sdk.entities import Variable
 from dhl_sdk.exceptions import (
@@ -298,7 +298,7 @@ class TestCultivationUtils(unittest.TestCase):
             Variable(**var4),
         ]
 
-        self.prediction_config = PredictionConfig()
+        self.prediction_config = PredictionRequestConfig()
 
     def test_format_predictions(self):
         predictions = [

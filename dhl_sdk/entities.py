@@ -14,7 +14,7 @@ Classes:
 from abc import ABC, abstractmethod
 from typing import Literal, Optional, Type, Union
 
-from pydantic import BaseModel, Field, PrivateAttr, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 from dhl_sdk._input_processing import (
     CultivationHistoricalPreprocessor,
@@ -32,7 +32,7 @@ from dhl_sdk._constants import (
     TEMPLATES_URL,
 )
 from dhl_sdk._utils import (
-    PredictionConfig,
+    PredictionRequestConfig,
     Predictions,
     PredictionResponse,
     get_id_list,
@@ -216,6 +216,25 @@ class Model(BaseModel, ABC):
         """Prediction for Model"""
 
 
+class PredictionConfig(BaseModel):
+    """Configuration class for prediction method. This configuration parameters are
+    passed to the model in DHL.
+
+    Parameters:
+    -----------
+
+    model_confidence: float, optional
+        This parameter determines the range within which the predictions of the model are
+        expected to fall, with a specified level of certainty, i.e, setting it to 80%
+        corresponds to capturing the range between the 10th and 90th percentiles
+        of the model's output. Must be a value between 1 and 99, by default 80
+    """
+
+    model_config = ConfigDict(protected_namespaces=())
+
+    model_confidence: float = Field(default=80.0, ge=1.0, le=99.0)
+
+
 class SpectraModel(Model):
     """Pydantic Model for Spectra Prediction Model from the API"""
 
@@ -321,7 +340,7 @@ class CultivationModel(Model, ABC):
         timestamps: list,
         inputs: dict,
         timestamps_unit: str = "s",
-        model_confidence: int = 80,
+        config: PredictionConfig = PredictionConfig(),
     ) -> dict:
         """Prediction for CultivationModel"""
 
@@ -343,7 +362,7 @@ class CultivationPropagationModel(CultivationModel):
         timestamps: list,
         inputs: dict,
         timestamps_unit: str = "s",
-        model_confidence: float = 80,
+        config: PredictionConfig = PredictionConfig(),
     ) -> dict:
         """
         Predicts the output of a given model for a given set of inputs.
@@ -358,11 +377,10 @@ class CultivationPropagationModel(CultivationModel):
         timestamps_unit : str, optional
             Unit of the timestamps, by default "s".
             Needs to be one of the following: "s", "m", "h", "d".
-        model_confidence: int, optional
-            This parameter determines the range within which the predictions of the model are
-            expected to fall, with a specified level of certainty, i.e, setting it to 80%
-            corresponds to capturing the range between the 10th and 90th percentiles
-            of the model's output. Must be a value between 1 and 99, by default 80
+        config: PredictionConfig, optional
+            Configuration for the prediction method. Refer to the PredictionConfig class for
+            details on the configuration parameters.
+            See also: `PredictionConfig`
 
 
         Returns:
@@ -387,7 +405,9 @@ class CultivationPropagationModel(CultivationModel):
                 f"{self.name} is not ready for prediction. The current status is {self.status}"
             )
 
-        prediction_config = PredictionConfig.new(model_confidence=model_confidence)
+        prediction_config = PredictionRequestConfig.new(
+            model_confidence=config.model_confidence
+        )
 
         data_processing_strategy = CultivationPropagationPreprocessor(
             timestamps=timestamps,
@@ -421,7 +441,7 @@ class CultivationHistoricalModel(CultivationModel):
         steps: list[Optional[int]],
         inputs: dict[str, list],
         timestamps_unit: str = "s",
-        model_confidence: float = 80.0,
+        config: PredictionConfig = PredictionConfig(),
     ) -> dict:
         """
         Predicts the output of a given model for a given set of inputs.
@@ -439,11 +459,10 @@ class CultivationHistoricalModel(CultivationModel):
         timestamps_unit : str, optional
             Unit of the timestamps, by default "s".
             Needs to be one of the following: "s", "m", "h", "d".
-        model_confidence: int, optional
-            This parameter determines the range within which the predictions of the model are
-            expected to fall, with a specified level of certainty, i.e, setting it to 80%
-            corresponds to capturing the range between the 10th and 90th percentiles of
-            the model's output. Must be a value between 1 and 99, by default 80
+        config: PredictionConfig, optional
+            Configuration for the prediction method. Refer to the PredictionConfig class for
+            details on the configuration parameters.
+            See also: `PredictionConfig`
 
         Returns:
         --------
@@ -467,7 +486,9 @@ class CultivationHistoricalModel(CultivationModel):
                 f"{self.name} is not ready for prediction. The current status is {self.status}"
             )
 
-        prediction_config = PredictionConfig.new(model_confidence)
+        prediction_config = PredictionRequestConfig.new(
+            model_confidence=config.model_confidence
+        )
 
         data_processing_strategy = CultivationHistoricalPreprocessor(
             timestamps=timestamps,

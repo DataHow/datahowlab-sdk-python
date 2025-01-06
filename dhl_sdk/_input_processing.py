@@ -21,7 +21,7 @@ from dhl_sdk._spectra_utils import (
 )
 from dhl_sdk._utils import (
     PredictionRequest,
-    PredictionConfig,
+    PredictionRequestConfig,
     Predictions,
     PredictionResponse,
     validate_list_elements,
@@ -231,7 +231,7 @@ class CultivationPropagationPreprocessor(Preprocessor):
     timestamps: Union[list[Union[int, float]], np.ndarray]
     timestamps_unit: str
     inputs: dict[str, list]
-    prediction_config: PredictionConfig
+    prediction_config: PredictionRequestConfig
     model: Model
 
     def validate(self) -> bool:
@@ -328,7 +328,7 @@ class CultivationHistoricalPreprocessor(Preprocessor):
     timestamps_unit: str
     steps: list[Optional[int]]
     inputs: dict[str, list]
-    prediction_config: PredictionConfig
+    prediction_config: PredictionRequestConfig
     model: Model
 
     def validate(self) -> bool:
