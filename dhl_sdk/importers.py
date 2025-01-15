@@ -5,7 +5,7 @@ import csv
 from io import StringIO
 from typing import Any, Dict, Literal, Protocol
 
-from dhl_sdk._utils import FILES_URL
+from dhl_sdk._constants import FILES_URL
 from dhl_sdk.crud import Client
 
 
@@ -17,7 +17,15 @@ class File(Protocol):
     _data: Dict[str, Any]
 
     def create_request_body(self) -> Dict[str, Any]:
-        pass
+        ...
+
+    def model_dump(
+        self,
+        exclude_none: bool = ...,
+        by_alias: bool = ...,
+        include: dict[str, Any] = ...,
+    ) -> dict[str, Any]:
+        ...
 
 
 class RunFileImporter:

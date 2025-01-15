@@ -14,12 +14,12 @@ from dhl_sdk._input_processing import (
     groupcode_is_timedependent,
     variant_is_numeric,
 )
-from dhl_sdk._utils import (
+from dhl_sdk._utils import is_date_in_format
+from dhl_sdk._constants import (
     EXPERIMENTS_URL,
     FILES_URL,
     PRODUCTS_URL,
     VARIABLES_URL,
-    is_date_in_format,
 )
 from dhl_sdk.crud import Client, CRUDClient
 from dhl_sdk.exceptions import ImportValidationException
@@ -257,9 +257,9 @@ class ProductValidator(AbstractValidator):
             return False
 
         # check if length of code is less than 5
-        if len(entity.code) > 5:
+        if len(entity.code) > 6:
             raise ImportValidationException(
-                "Product code must be from 1 to 5 characters long"
+                "Product code must be from 1 to 6 characters long"
             )
 
         # validate if variable code already exists

@@ -14,7 +14,7 @@ Classes:
 from abc import ABC, abstractmethod
 from typing import Literal, Optional, Type, Union
 
-from pydantic import BaseModel, Field, PrivateAttr, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 from dhl_sdk._input_processing import (
     CultivationHistoricalPreprocessor,
@@ -24,14 +24,17 @@ from dhl_sdk._input_processing import (
     SpectraPreprocessor,
     format_predictions,
 )
-from dhl_sdk._utils import (
+from dhl_sdk._constants import (
     DATASETS_URL,
     MODELS_URL,
     PREDICT_URL,
     PROJECTS_URL,
     TEMPLATES_URL,
+)
+from dhl_sdk._utils import (
+    PredictionRequestConfig,
     Predictions,
-    PredictResponse,
+    PredictionResponse,
     get_id_list,
 )
 from dhl_sdk.crud import Client, CRUDClient, DataBaseClient, Result
@@ -43,12 +46,6 @@ from dhl_sdk.exceptions import (
 )
 
 
-class IdEntity(BaseModel):
-    """Model for Entities only containing an id"""
-
-    id: str = Field(alias="id")
-
-
 # pylint: disable=not-an-iterable
 class Dataset(BaseModel):
     """Model Dataset"""
@@ -57,7 +54,7 @@ class Dataset(BaseModel):
     name: str = Field(alias="name")
     description: str = Field(alias="description")
     variables: list[Variable] = Field(alias="variables")
-    experiments: list[IdEntity] = Field(default=[], alias="experiments")
+    experiments: list[Experiment] = Field(default=[], alias="experiments")
     _client: Client = PrivateAttr()
 
     def __init__(self, **data):
@@ -78,29 +75,32 @@ class Dataset(BaseModel):
 
         run_data = []
         for experiment in self.experiments:
-            exp = Experiment.requests(self._client).get(experiment.id)
-            data = exp.get_data(client=client)
+            data = experiment.get_data(client=client)
             run_data.append(data)
 
         return run_data
 
     @model_validator(mode="before")
     @classmethod
-    def _validate_variables(cls, data) -> dict:
-        unpacked_variables = []
+    def _unpack_reference_entities(cls, data) -> dict:
+        def unpack_entity(source: str, entity):
+            unpacked = []
 
-        for i, variable_info in enumerate(data["variables"]):
-            try:
-                var_id = variable_info["id"]
-            except KeyError as err:
-                raise KeyError(
-                    f"The variable at index {i} does not contain an id"
-                ) from err
+            for i, info in enumerate(data[source]):
+                try:
+                    entity_id = info["id"]
+                except KeyError as err:
+                    raise KeyError(
+                        f"The {source} index {i} does not contain an id"
+                    ) from err
 
-            var = Variable.requests(data["client"]).get(var_id)
-            unpacked_variables.append(var)
+                var = entity.requests(data["client"]).get(entity_id)
+                unpacked.append(var)
 
-        data["variables"] = unpacked_variables
+            data[source] = unpacked
+
+        unpack_entity("variables", Variable)
+        unpack_entity("experiments", Experiment)
 
         return data
 
@@ -178,7 +178,7 @@ class Model(BaseModel, ABC):
             except Exception as ex:
                 raise ex
 
-            predictions.append(PredictResponse(**response.json()))
+            predictions.append(PredictionResponse(**response.json()))
 
         return format_predictions(predictions, model=self)
 
@@ -187,7 +187,7 @@ class Model(BaseModel, ABC):
         """List of the variables used in the model"""
 
         model_variables = []
-        groups = self.config["groups"]
+        groups: dict = self.config["groups"]
 
         for variable in self.dataset.variables:
             variable_id = variable.id
@@ -214,6 +214,25 @@ class Model(BaseModel, ABC):
     @abstractmethod
     def predict(self, **kwargs) -> Predictions:
         """Prediction for Model"""
+
+
+class PredictionConfig(BaseModel):
+    """Configuration class for prediction method. This configuration parameters are
+    passed to the model in DHL.
+
+    Parameters:
+    -----------
+
+    model_confidence: float, optional
+        This parameter determines the range within which the predictions of the model are
+        expected to fall, with a specified level of certainty, i.e, setting it to 80%
+        corresponds to capturing the range between the 10th and 90th percentiles
+        of the model's output. Must be a value between 1 and 99, by default 80
+    """
+
+    model_config = ConfigDict(protected_namespaces=())
+
+    model_confidence: float = Field(default=80.0, ge=1.0, le=99.0)
 
 
 class SpectraModel(Model):
@@ -317,7 +336,11 @@ class CultivationModel(Model, ABC):
 
     @abstractmethod
     def predict(
-        self, timestamps: list, inputs: dict, timestamps_unit: str = "s"
+        self,
+        timestamps: list,
+        inputs: dict,
+        timestamps_unit: str = "s",
+        config: PredictionConfig = PredictionConfig(),
     ) -> dict:
         """Prediction for CultivationModel"""
 
@@ -339,6 +362,7 @@ class CultivationPropagationModel(CultivationModel):
         timestamps: list,
         inputs: dict,
         timestamps_unit: str = "s",
+        config: PredictionConfig = PredictionConfig(),
     ) -> dict:
         """
         Predicts the output of a given model for a given set of inputs.
@@ -353,6 +377,10 @@ class CultivationPropagationModel(CultivationModel):
         timestamps_unit : str, optional
             Unit of the timestamps, by default "s".
             Needs to be one of the following: "s", "m", "h", "d".
+        config: PredictionConfig, optional
+            Configuration for the prediction method. Refer to the PredictionConfig class for
+            details on the configuration parameters.
+            See also: `PredictionConfig`
 
 
         Returns:
@@ -377,10 +405,15 @@ class CultivationPropagationModel(CultivationModel):
                 f"{self.name} is not ready for prediction. The current status is {self.status}"
             )
 
+        prediction_config = PredictionRequestConfig.new(
+            model_confidence=config.model_confidence
+        )
+
         data_processing_strategy = CultivationPropagationPreprocessor(
             timestamps=timestamps,
             timestamps_unit=timestamps_unit,
             inputs=inputs,
+            prediction_config=prediction_config,
             model=self,
         )
 
@@ -408,6 +441,7 @@ class CultivationHistoricalModel(CultivationModel):
         steps: list[Optional[int]],
         inputs: dict[str, list],
         timestamps_unit: str = "s",
+        config: PredictionConfig = PredictionConfig(),
     ) -> dict:
         """
         Predicts the output of a given model for a given set of inputs.
@@ -425,6 +459,10 @@ class CultivationHistoricalModel(CultivationModel):
         timestamps_unit : str, optional
             Unit of the timestamps, by default "s".
             Needs to be one of the following: "s", "m", "h", "d".
+        config: PredictionConfig, optional
+            Configuration for the prediction method. Refer to the PredictionConfig class for
+            details on the configuration parameters.
+            See also: `PredictionConfig`
 
         Returns:
         --------
@@ -448,11 +486,16 @@ class CultivationHistoricalModel(CultivationModel):
                 f"{self.name} is not ready for prediction. The current status is {self.status}"
             )
 
+        prediction_config = PredictionRequestConfig.new(
+            model_confidence=config.model_confidence
+        )
+
         data_processing_strategy = CultivationHistoricalPreprocessor(
             timestamps=timestamps,
             timestamps_unit=timestamps_unit,
             steps=steps,
             inputs=inputs,
+            prediction_config=prediction_config,
             model=self,
         )
 

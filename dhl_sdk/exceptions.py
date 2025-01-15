@@ -22,7 +22,7 @@ Exceptions:
 class InvalidSpectraException(Exception):
     """Exception raised when spectra used for prediction are not valid"""
 
-    def __init__(self, message="The Spectra used for prediction are not valid."):
+    def __init__(self, message: str = "The Spectra used for prediction are not valid."):
         self.message = message
         super().__init__(self.message)
 
@@ -30,7 +30,7 @@ class InvalidSpectraException(Exception):
 class InvalidInputsException(Exception):
     """Exception raised when Inputs used for prediction are not valid"""
 
-    def __init__(self, message="The Inputs used for prediction are not valid."):
+    def __init__(self, message: str = "The Inputs used for prediction are not valid."):
         self.message = message
         super().__init__(self.message)
 
@@ -38,7 +38,7 @@ class InvalidInputsException(Exception):
 class ModelPredictionException(Exception):
     """Exception raised when Model Prediction fails"""
 
-    def __init__(self, message="Model is not valid for prediction."):
+    def __init__(self, message: str = "Model is not valid for prediction."):
         self.message = message
         super().__init__(self.message)
 
@@ -46,7 +46,17 @@ class ModelPredictionException(Exception):
 class InvalidTimestampsException(Exception):
     """Exception raised when timestamps used for prediction are not valid"""
 
-    def __init__(self, message="The timestamps used for prediction are not valid."):
+    def __init__(
+        self, message: str = "The timestamps used for prediction are not valid."
+    ):
+        self.message = message
+        super().__init__(self.message)
+
+
+class InvalidVariantException(Exception):
+    """Exception raised when variant is not valid"""
+
+    def __init__(self, message: str = "The selected variant is not valid"):
         self.message = message
         super().__init__(self.message)
 
@@ -54,7 +64,9 @@ class InvalidTimestampsException(Exception):
 class InvalidStepsException(Exception):
     """Exception raised when steps used for historical model prediction are not valid"""
 
-    def __init__(self, message="The steps used for the prediction are not valid."):
+    def __init__(
+        self, message: str = "The steps used for the prediction are not valid."
+    ):
         self.message = message
         super().__init__(self.message)
 
@@ -62,7 +74,17 @@ class InvalidStepsException(Exception):
 class InvalidStartingIndexException(Exception):
     """Exception raised when starting index given is not valid"""
 
-    def __init__(self, message="The starting index is not valid."):
+    def __init__(self, message: str = "The starting index is not valid."):
+        self.message = message
+        super().__init__(self.message)
+
+
+class InvalidConfidenceException(Exception):
+    """Exception raised when Model Prediction fails"""
+
+    def __init__(
+        self, message: str = "Model Confidence must be a value between 1 and 99"
+    ):
         self.message = message
         super().__init__(self.message)
 
@@ -70,7 +92,7 @@ class InvalidStartingIndexException(Exception):
 class PredictionRequestException(Exception):
     """Exception raised when prediction request fails"""
 
-    def __init__(self, message="Prediction request failed."):
+    def __init__(self, message: str = "Prediction request failed."):
         self.message = message
         super().__init__(self.message)
 
@@ -78,7 +100,7 @@ class PredictionRequestException(Exception):
 class ImportValidationException(Exception):
     """Exception raised when import validation fails"""
 
-    def __init__(self, message="Import validation failed."):
+    def __init__(self, message: str = "Import validation failed."):
         self.message = message
         super().__init__(self.message)
 
@@ -86,6 +108,6 @@ class ImportValidationException(Exception):
 class NewEntityException(Exception):
     """Exception raised when creating new entity fails"""
 
-    def __init__(self, message="Creating new entity failed."):
+    def __init__(self, message: str = "Creating new entity failed."):
         self.message = message
         super().__init__(self.message)

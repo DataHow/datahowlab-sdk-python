@@ -23,16 +23,20 @@ from typing import Literal, Optional, Union
 from pydantic import BaseModel, Field, PrivateAttr, model_validator
 from requests import Response
 
-from dhl_sdk._utils import (
+from dhl_sdk._constants import (
     EXPERIMENTS_URL,
     FILES_URL,
     PRODUCTS_URL,
     RECIPES_URL,
     VARIABLES_URL,
-    VariableGroupCodes,
 )
+from dhl_sdk._utils import VariableGroupCodes
 from dhl_sdk.crud import Client, CRUDClient, DataBaseClient
-from dhl_sdk.exceptions import ImportValidationException, NewEntityException
+from dhl_sdk.exceptions import (
+    ImportValidationException,
+    InvalidVariantException,
+    NewEntityException,
+)
 from dhl_sdk.importers import RunFileImporter, SpectraFileImporter
 from dhl_sdk.validators import (
     AbstractFileValidator,
@@ -433,7 +437,7 @@ class Variable(BaseModel, DataBaseEntity):
         Parameters
         ----------
         code : str
-            Code of the variable (must be unique and from 1 to 5 characters long)
+            Code of the variable
         name : str
             Name of the variable
         measurement_unit : str
@@ -521,7 +525,7 @@ class Product(BaseModel, DataBaseEntity):
         Parameters
         ----------
         code : str
-            Code of the product (must be unique and from 1 to 5 characters long)
+            Code of the product (must be unique and from 1 to 6 characters long)
         name : str
             Name of the product
         description : Optional[str]
@@ -543,8 +547,8 @@ class Product(BaseModel, DataBaseEntity):
         if name == "":
             raise NewEntityException("Product name cannot be empty")
 
-        if len(code) > 5:
-            raise NewEntityException("Product code must be from 1 to 5 characters long")
+        if len(code) > 6:
+            raise NewEntityException("Product code must be from 1 to 6 characters long")
 
         return Product(code=code, name=name, description=description)
 
@@ -597,9 +601,8 @@ class File(BaseModel):
             include={"name": True, "description": True},
         )
 
-        if self.type == "run":
-            suffix = "Data"
-        elif self.type == "spectra":
+        suffix = "Data"
+        if self.type == "spectra":
             suffix = "Spectra"
 
         if self.variant == "run":
@@ -678,6 +681,7 @@ class Recipe(BaseModel, DataBaseEntity):
         if not self._validator.validate(entity=self, client=client):
             return False
 
+        file_id = None
         if self.file_data.validate_import(self.variables):
             file_id = self.file_data.create_file(client)
 
@@ -765,6 +769,7 @@ class Experiment(BaseModel, DataBaseEntity):
     variables: list[Variable] = Field(alias="variables")
     instances: list[Instances] = Field(alias="instances")
     variant: Literal["run", "samples"] = Field(default="run", alias="variant")
+
     variant_details: Optional[dict] = None
     file_data: Optional[File] = None
 
@@ -795,6 +800,7 @@ class Experiment(BaseModel, DataBaseEntity):
         if not self._validator.validate(entity=self, client=client):
             return False
 
+        file_id = None
         if self.file_data.validate_import(self.variables, self.variant_details):
             file_id = self.file_data.create_file(client)
 
@@ -863,6 +869,8 @@ class Experiment(BaseModel, DataBaseEntity):
                     spectra_ids = "timestamps"
                 elif self.variant == "samples":  # samples variant
                     spectra_ids = "sampleId"
+                else:
+                    raise InvalidVariantException()
 
                 data_rows = [row[1:] for row in csv_data]
                 experiment_data["spectra"] = {
@@ -878,9 +886,9 @@ class Experiment(BaseModel, DataBaseEntity):
         description: str,
         product: Product,
         variables: list[Variable],
-        data_type: Literal["run", "spectra"],
         data: dict,
-        variant: Literal["run", "samples"],
+        data_type: Literal["run", "spectra"] = "run",
+        variant: Literal["run", "samples"] = "run",
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
     ) -> "Experiment":
@@ -927,9 +935,10 @@ class Experiment(BaseModel, DataBaseEntity):
                 "Start time and end time must be provided for 'run' variant"
             )
 
-        file_validator = ExperimentFileValidator()
-        if data_type == "spectra":
-            file_validator = SpectraFileValidator()
+        file_validator_class = (
+            SpectraFileValidator if data_type == "spectra" else ExperimentFileValidator
+        )
+        file_validator = file_validator_class()
 
         # Create a new Data File
         file = File(
@@ -941,13 +950,12 @@ class Experiment(BaseModel, DataBaseEntity):
             validator=file_validator,
         )
 
-        if variant == "run":
-            variant_details = {"startTime": start_time, "endTime": end_time}
-        else:
-            variant_details = {}
+        variant_details = (
+            {"startTime": start_time, "endTime": end_time} if variant == "run" else {}
+        )
 
         # Create a new Experiment
-        experiment = Experiment(
+        return Experiment(
             name=name,
             description=description,
             product=product,
@@ -957,8 +965,6 @@ class Experiment(BaseModel, DataBaseEntity):
             variant=variant,
             variant_details=variant_details,
         )
-
-        return experiment
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["Experiment"]:
