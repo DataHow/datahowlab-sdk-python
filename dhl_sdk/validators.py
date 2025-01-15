@@ -257,9 +257,9 @@ class ProductValidator(AbstractValidator):
             return False
 
         # check if length of code is less than 5
-        if len(entity.code) > 5:
+        if len(entity.code) > 6:
             raise ImportValidationException(
-                "Product code must be from 1 to 5 characters long"
+                "Product code must be from 1 to 6 characters long"
             )
 
         # validate if variable code already exists

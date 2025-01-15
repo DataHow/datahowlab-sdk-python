@@ -437,7 +437,7 @@ class Variable(BaseModel, DataBaseEntity):
         Parameters
         ----------
         code : str
-            Code of the variable (must be unique and from 1 to 5 characters long)
+            Code of the variable
         name : str
             Name of the variable
         measurement_unit : str
@@ -525,7 +525,7 @@ class Product(BaseModel, DataBaseEntity):
         Parameters
         ----------
         code : str
-            Code of the product (must be unique and from 1 to 5 characters long)
+            Code of the product (must be unique and from 1 to 6 characters long)
         name : str
             Name of the product
         description : Optional[str]
@@ -547,8 +547,8 @@ class Product(BaseModel, DataBaseEntity):
         if name == "":
             raise NewEntityException("Product name cannot be empty")
 
-        if len(code) > 5:
-            raise NewEntityException("Product code must be from 1 to 5 characters long")
+        if len(code) > 6:
+            raise NewEntityException("Product code must be from 1 to 6 characters long")
 
         return Product(code=code, name=name, description=description)
 

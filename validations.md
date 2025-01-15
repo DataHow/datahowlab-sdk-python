@@ -10,7 +10,7 @@ client.create(product)
 ``` 
 
 * Product `code` and `name` should not be empty
-* Product `code` should have between 1 and 5 characters
+* Product `code` should have between 1 and 6 characters
 
 * If the product is already imported in the DB, the new entity creation will be skipped
 * Product `code` and `name` must be unique (no duplicates in the database) 
