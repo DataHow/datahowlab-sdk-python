@@ -1,4 +1,8 @@
 # pylint: disable=no-member
+# pylint: disable=too-few-public-methods
+# pylint: disable=missing-function-docstring
+# pylint: disable=missing-class-docstring
+
 """API Results Handling Module
 
 This module provides utility functions to handle and manage 
@@ -11,7 +15,7 @@ Classes:
 """
 
 from collections import deque
-from typing import Any, Generic, TypeVar, Dict, Protocol, Optional
+from typing import Any, Generic, Optional, Protocol, TypeVar
 
 from requests import Response
 
@@ -20,8 +24,17 @@ class Client(Protocol):
     def post(self, path: str, json_data: Any) -> Response:
         ...
 
-    def get(self, path: str, query_params: Optional[Dict[str, str]] = None) -> Response:
+    def put(self, path: str, data: Any, content_type: str) -> Response:
         ...
+
+    def get(self, path: str, query_params: Optional[dict[str, str]] = None) -> Response:
+        ...
+
+
+class DataBaseClient(Protocol):
+    """Protocol for Clients that interact with the DB, like DataHowLabClient"""
+
+    _client: Client
 
 
 T = TypeVar("T")
@@ -29,7 +42,7 @@ T = TypeVar("T")
 
 class Constructor(Protocol[T]):
     def __call__(self, **kwargs) -> T:
-        pass
+        ...
 
 
 class CRUDClient(Generic[T]):
@@ -41,15 +54,24 @@ class CRUDClient(Generic[T]):
         self._constructor = constructor
 
     def get(self, entity_id: str) -> T:
+        """Get an entity by its ID from the API"""
         response = self._client.get(f"{self._base_url}/{entity_id}")
         entity = response.json()
         entity = self._constructor(**entity, client=self._client)
 
         return entity
 
+    def create(self, data: dict[str, Any]) -> T:
+        """Create an entity in the API"""
+        response = self._client.post(self._base_url, json_data=data)
+        entity = response.json()
+        entity = self._constructor(**entity, client=self._client)
+
+        return entity
+
     def list(
-        self, offset: int, limit: int, query_params: Optional[Dict[str, str]] = None
-    ) -> (list[T], int):
+        self, offset: int, limit: int, query_params: Optional[dict[str, str]] = None
+    ) -> tuple[list[T], int]:
         query_params = query_params or {}
         query_params |= {
             "offset": str(offset),
@@ -73,10 +95,10 @@ class Result(Generic[T]):
 
     def __init__(
         self,
-        offset: int,
         limit: int,
-        query_params: Dict[str, str],
+        query_params: Optional[dict[str, str]],
         requests: CRUDClient[T],
+        offset: int = 0,
     ):
         self._data = deque()
         self.limit = limit

@@ -1,10 +1,15 @@
 [tool.poetry]
-name = "dhl-sdk"
-version = "0.1.0"
-description = ""
-authors = ["t.mateus.datahow <t.mateus@datahow.ch>"]
+name = "datahowlab-sdk"
+version = "0.2.5"
+description = "The DataHowLab SDK for Python"
+license = "Apache-2.0"
+authors = ["DataHow <feedback@datahow.ch>"]
 readme = "README.md"
 packages = [{include = "dhl_sdk"}]
+
+[tool.poetry.urls]
+Homepage = "https://datahow.ch/"
+Source = "https://github.com/DataHow/datahowlab-sdk-python"
 
 [tool.poetry.group.dev.dependencies]
 Sphinx = "^5.3.0"

@@ -1,12 +1,18 @@
+# pylint: disable=missing-docstring
 import unittest
-from unittest.mock import Mock
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from dhl_sdk.authentication import APIKeyAuthentication
-from dhl_sdk.client import Client
-
+from dhl_sdk.client import Client, DataHowLabClient
 from dhl_sdk.crud import Result
-from dhl_sdk.entities import Model, Project, Variable
+from dhl_sdk.entities import (
+    CultivationHistoricalModel,
+    CultivationProject,
+    CultivationPropagationModel,
+    ModelFactory,
+    SpectraModel,
+    Variable,
+)
 
 
 class TestProjectEntity(unittest.TestCase):
@@ -18,30 +24,32 @@ class TestProjectEntity(unittest.TestCase):
                     "id": "id-123",
                     "name": "project 1",
                     "description": "description 1",
-                    "processUnitId": "unit1",
+                    "processUnitId": "373c173a-1f23-4e56-874e-90ca4702ec0d",
                 },
                 {
                     "id": "id-456",
                     "name": "project 2",
                     "description": "description 2",
-                    "processUnitId": "Unit1",
+                    "processUnitId": "373c173a-1f23-4e56-874e-90ca4702ec0d",
                 },
             ],
             headers={"x-total-count": "2"},
         )
 
     def test_projects_list(self):
-        projects, total = Project.requests(self.client).list(0, 10)
+        projects, total = CultivationProject.requests(self.client).list(0, 10)
 
         self.assertEqual(total, 2)
         self.assertEqual(len(projects), 2)
         self.assertEqual(projects[0].id, "id-123")
         self.assertEqual(projects[0].name, "project 1")
-        self.assertEqual(projects[1].process_unit_id, "Unit1")
+        self.assertEqual(
+            projects[1].process_unit_id, "373c173a-1f23-4e56-874e-90ca4702ec0d"
+        )
 
     def test_projects_result(self):
-        project_requests = Project.requests(self.client)
-        result = Result[Project](0, 5, {}, project_requests)
+        project_requests = CultivationProject.requests(self.client)
+        result = Result[CultivationProject](5, {}, project_requests)
 
         p1 = next(result)
 
@@ -54,52 +62,30 @@ class TestProjectEntity(unittest.TestCase):
         self.assertEqual(p2.name, "project 2")
 
     def test_projects_get_models(self):
-        project_requests = Project.requests(self.client)
-        result = Result[Project](0, 5, {}, project_requests)
+        project_requests = CultivationProject.requests(self.client)
+        result = Result[CultivationProject](5, {}, project_requests)
         project = next(result)
 
         models = project.get_models()
         self.assertTrue(isinstance(models, Result))
 
+    def test_model_factory(self):
+        model_factory = ModelFactory("373c173a-1f23-4e56-874e-90ca4702ec0d")
+        model = model_factory.get_model()
 
-class TestVariableEntity(unittest.TestCase):
-    def test_variable_spectrum(self):
-        client = Mock()
-        client.get.return_value = Mock(
-            json=lambda: {
-                "id": "var-id-123",
-                "name": "Variable 1",
-                "code": "var1",
-                "variant": "spectrum",
-                "spectrum": {"xAxis": {"dimension": 10}},
-            }
-        )
+        self.assertEqual(model, SpectraModel)
 
-        request = Variable.requests(client)
+        model_factory = ModelFactory("04a324da-13a5-470b-94a1-bda6ac87bb86")
+        model = model_factory.get_model(model_type="propagation")
+        self.assertEqual(model, CultivationPropagationModel)
 
-        var = request.get("var-id-123")
+        model_factory = ModelFactory("04a324da-13a5-470b-94a1-bda6ac87bb86")
+        model = model_factory.get_model(model_type="historical")
+        self.assertEqual(model, CultivationHistoricalModel)
 
-        self.assertEqual(var.id, "var-id-123")
-        self.assertEqual(var.name, "Variable 1")
-        self.assertEqual(var.size, 10)
-
-    def test_variable_numeric(self):
-        client = Mock()
-        client.get.return_value = Mock(
-            json=lambda: {
-                "id": "var-id-123",
-                "name": "Variable 1",
-                "code": "var1",
-                "variant": "numeric",
-            }
-        )
-
-        request = Variable.requests(client)
-        var = request.get("var-id-123")
-
-        self.assertEqual(var.id, "var-id-123")
-        self.assertEqual(var.name, "Variable 1")
-        self.assertTrue(var.size is None)
+        model_factory = ModelFactory("04a324da-13a5-470b-94a1-bda6ac871234")
+        with self.assertRaises(NotImplementedError):
+            model_factory.get_model()
 
 
 class TestEntitiesRequests(unittest.TestCase):
@@ -113,7 +99,7 @@ class TestEntitiesRequests(unittest.TestCase):
         request = Variable.requests(self.client)
 
         with self.assertRaises(KeyError):
-            var = request.get("var-id-123")
+            _ = request.get("var-id-123")
 
         mock_get.assert_called_once_with(
             "https://test.com/api/db/v2/variables/var-id-123",
@@ -122,25 +108,41 @@ class TestEntitiesRequests(unittest.TestCase):
 
     @patch("requests.Session.get")
     def test_get_projects_result(self, mock_get):
-        project_requests = Project.requests(self.client)
-        result = Result[Project](0, 5, {}, project_requests)
+        project_requests = CultivationProject.requests(self.client)
+        result = Result[CultivationProject](5, {}, project_requests)
         with self.assertRaises(StopIteration):
             next(result)
 
         mock_get.assert_called_once_with(
-            "https://test.com/api/db/v2/projects?offset=0&limit=5&archived=false&sortBy[createdAt]=desc",
+            "https://test.com/api/db/v2/projects?offset=0"
+            "&limit=5&archived=false&sortBy[createdAt]=desc",
             headers={"Authorization": "ApiKey test_auth_key"},
         )
 
     @patch("requests.Session.get")
-    def test_get_models_result(self, mock_get):
-        model_requests = Model.requests(self.client)
-        result = Result[Model](0, 5, {}, model_requests)
+    def test_get_spectramodels_result(self, mock_get):
+        model_requests = SpectraModel.requests(self.client)
+        result = Result[SpectraModel](5, {}, model_requests)
 
         with self.assertRaises(StopIteration):
             next(result)
 
         mock_get.assert_called_once_with(
-            "https://test.com/api/db/v2/pipelineJobs?offset=0&limit=5&archived=false&sortBy[createdAt]=desc",
+            "https://test.com/api/db/v2/pipelineJobs?offset=0"
+            "&limit=5&archived=false&sortBy[createdAt]=desc",
+            headers={"Authorization": "ApiKey test_auth_key"},
+        )
+
+    @patch("requests.Session.get")
+    def test_get_cultivationmodels_result(self, mock_get):
+        model_requests = CultivationPropagationModel.requests(self.client)
+        result = Result[CultivationPropagationModel](5, {}, model_requests)
+
+        with self.assertRaises(StopIteration):
+            next(result)
+
+        mock_get.assert_called_once_with(
+            "https://test.com/api/db/v2/pipelineJobs?offset=0"
+            "&limit=5&archived=false&sortBy[createdAt]=desc",
             headers={"Authorization": "ApiKey test_auth_key"},
         )

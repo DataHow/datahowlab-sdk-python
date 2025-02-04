@@ -20,21 +20,23 @@ dhl\_sdk.client module
    :undoc-members:
    :show-inheritance:
 
-dhl\_sdk.results module
------------------------
+dhl\_sdk.entities module
+------------------------
 
-.. automodule:: dhl_sdk.results
+.. automodule:: dhl_sdk.entities
    :members:
    :undoc-members:
    :show-inheritance:
 
-dhl\_sdk.utils module
----------------------
 
-.. automodule:: dhl_sdk.utils
+dhl\_sdk.db_entities module
+---------------------------
+
+.. automodule:: dhl_sdk.db_entities
    :members:
    :undoc-members:
    :show-inheritance:
+
 
 Module contents
 ---------------
