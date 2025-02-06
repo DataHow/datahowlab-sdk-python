@@ -233,11 +233,14 @@ class PredictionConfig(BaseModel):
         expected to fall, with a specified level of certainty, i.e, setting it to 80%
         corresponds to capturing the range between the 10th and 90th percentiles
         of the model's output. Must be a value between 1 and 99, by default 80
+    starting_index: int, optional
+        The index of the timestamp after which the prediction will commence
     """
 
     model_config = ConfigDict(protected_namespaces=())
 
     model_confidence: float = Field(default=80.0, ge=1.0, le=99.0)
+    starting_index: int = Field(default=0, ge=0)
 
 
 class SpectraModel(Model):
@@ -417,7 +420,8 @@ class CultivationPropagationModel(CultivationModel):
             )
 
         prediction_config = PredictionRequestConfig.new(
-            model_confidence=config.model_confidence
+            model_confidence=config.model_confidence,
+            starting_index=config.starting_index,
         )
 
         data_processing_strategy = CultivationPropagationPreprocessor(
