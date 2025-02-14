@@ -690,7 +690,7 @@ class CultivationProject(Project):
 
         # get templateIds for propagation models
         template_query_params = {
-            "filterByTag[type]": model_type,
+            "filterBy[type]": model_type,
             "archived": "any",
         }
         template_list = self._client.get(TEMPLATES_URL, template_query_params).json()
