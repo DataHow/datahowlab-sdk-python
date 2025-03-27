@@ -12,7 +12,13 @@ Classes:
 from abc import ABC, abstractmethod
 from typing import Literal, Optional, Type, Union
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    model_validator,
+)
 
 from dhl_sdk._input_processing import (
     CultivationHistoricalPreprocessor,
@@ -77,9 +83,9 @@ class Dataset(BaseModel):
 
         return run_data
 
-    @model_validator(mode="before")
+    @model_validator(mode="before")  # type: ignore
     @classmethod
-    def _unpack_reference_entities(cls, data) -> dict:
+    def _unpack_reference_entities(cls, data):
         def unpack_entity(source: str, entity):
             unpacked = []
 
@@ -151,9 +157,9 @@ class Model(BaseModel, ABC):
     @staticmethod
     @abstractmethod
     def requests(client: Client) -> CRUDClient["Model"]:
-        """Resquests abstract method for Model Types"""
+        """Requests abstract method for Model Types"""
 
-    def get_predictions(self, preprocessor: Preprocessor) -> dict:
+    def get_predictions(self, preprocessor: Preprocessor) -> Predictions:
         """Get the predictions for the model using selected strategy"""
 
         if preprocessor.validate():
@@ -177,12 +183,11 @@ class Model(BaseModel, ABC):
             predictions.append(PredictionResponse(**response.json()))
 
         return format_predictions(
-            predictions,
-            model=self,  # type: ignore - FIXME if still relevant
+            predictions, model=self  # type: ignore - FIXME if still relevant
         )
 
     @property
-    def model_variables(self) -> dict:
+    def model_variables(self) -> list[Variable]:
         """List of the variables used in the model"""
 
         model_variables = []
@@ -196,7 +201,7 @@ class Model(BaseModel, ABC):
                     if group == "Flows":
                         feed_concentrations = [
                             ref.concentration_id
-                            for ref in variable.variant_details.references
+                            for ref in variable.variant_details.references  # type: ignore - will be removed in favor of ext api
                             if ref.concentration_id
                         ]
                         if feed_concentrations:
@@ -244,9 +249,9 @@ class SpectraModel(Model):
         super().__init__(**data)
         self._client = data["client"]
 
-    @model_validator(mode="before")
+    @model_validator(mode="before")  # type: ignore - validator type hard to get right
     @classmethod
-    def _validate_model_data(cls, data) -> dict:
+    def _validate_model_data(cls, data):
         data["dataset"] = SpectraDataset(**data["dataset"], client=data["client"])
         return data
 
@@ -318,7 +323,7 @@ class SpectraModel(Model):
     def _get_spectra_size(self) -> int:
         """Get the size of the spectra from variable information in the API"""
         spectrum = self.dataset.variables[self.dataset.get_spectra_index()]
-        return spectrum.size
+        return spectrum.size or 0
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["SpectraModel"]:
@@ -328,9 +333,9 @@ class SpectraModel(Model):
 class CultivationModel(Model, ABC):
     """Abstract Pydantic Model for Cultivation Prediction Model from the API"""
 
-    @model_validator(mode="before")
+    @model_validator(mode="before")  # type: ignore - validator type hard to get right
     @classmethod
-    def _validate_model_data(cls, data) -> dict:
+    def _validate_model_data(cls, data):
         data["dataset"] = Dataset(**data["dataset"], client=data["client"])
         return data
 
@@ -410,7 +415,7 @@ class CultivationPropagationModel(CultivationModel):
             timestamps_unit=timestamps_unit,
             inputs=inputs,
             prediction_config=prediction_config,
-            model=self,
+            model=self,  # type: ignore - FIXME if still relevant
         )
 
         return super().get_predictions(data_processing_strategy)
@@ -484,7 +489,7 @@ class CultivationHistoricalModel(CultivationModel):
             steps=steps,
             inputs=inputs,
             prediction_config=prediction_config,
-            model=self,
+            model=self,  # type: ignore - FIXME if still relevant
         )
 
         return super().get_predictions(data_processing_strategy)
@@ -542,7 +547,7 @@ class Project(BaseModel, ABC):
         Returns:
         --------
 
-        Result[Dataset]: Iteratable object containing the that correspond to the search
+        Result[Dataset]: Iterable object containing the that correspond to the search
 
         """
 
@@ -582,7 +587,7 @@ class Project(BaseModel, ABC):
     @staticmethod
     @abstractmethod
     def requests(client: Client) -> CRUDClient["Project"]:
-        """Resquests abstract method for Project Types"""
+        """Requests abstract method for Project Types"""
 
 
 class SpectraProject(Project):

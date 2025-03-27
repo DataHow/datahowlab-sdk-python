@@ -6,22 +6,20 @@ from typing import Any, Dict, Literal, Protocol
 
 from dhl_sdk._constants import FILES_URL
 from dhl_sdk.crud import Client
+from dhl_sdk.validators import File as _File
 
 
-class File(Protocol):
+class File(_File, Protocol):
     """Protocol for file data"""
 
     type: Literal["run", "spectra"]
     variant: Literal["run", "samples"]
     _data: Dict[str, Any]
 
-    def create_request_body(self) -> Dict[str, Any]: ...
+    def create_request_body(self) -> dict: ...
 
     def model_dump(
         self,
-        exclude_none: bool = ...,
-        by_alias: bool = ...,
-        include: dict[str, Any] = ...,
     ) -> dict[str, Any]: ...
 
 
@@ -91,9 +89,9 @@ class SpectraFileImporter:
         """Create the request body for the targets file"""
 
         file_dict = file.model_dump(
-            exclude_none=True,
-            by_alias=True,
-            include={"name": True, "description": True},
+            exclude_none=True,  # type: ignore - FIXME
+            by_alias=True,  # type: ignore - FIXME
+            include={"name": True, "description": True},  # type: ignore - FIXME
         )
 
         if file.variant == "run":

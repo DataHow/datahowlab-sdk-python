@@ -1,11 +1,10 @@
 """New Entity Validators"""
 
-
 from datetime import datetime
 import math
 import warnings
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Protocol, Union
+from typing import Any, Literal, Optional, Protocol, Sequence, Union, Dict
 
 from dhl_sdk._input_processing import (
     groupcode_is_output,
@@ -36,69 +35,105 @@ class AbstractValidator(ABC):
 
 
 class Group(Protocol):
-    id: str
-    name: str
-    code: str
+    @property
+    def id(self) -> Optional[str]: ...
+    @property
+    def name(self) -> Optional[str]: ...
+    @property
+    def code(self) -> Optional[str]: ...
 
 
 class FlowReferences(Protocol):
-    measurement_id: str
-    concentration_id: Optional[str]
-    fraction_id: Optional[str]
+    @property
+    def measurement_id(self) -> str: ...
+    @property
+    def concentration_id(self) -> Optional[str]: ...
+    @property
+    def fraction_id(self) -> Optional[str]: ...
 
 
 class FlowVariableDetails(Protocol):
-    references: list[FlowReferences]
+    @property
+    def references(self) -> list[FlowReferences]: ...
 
 
 class Variable(Protocol):
-    id: str
+    id: Optional[str]
     code: str
-    name: str
-    group: Group
-    variant: str
-    variant_details: Optional[Union[Any, FlowVariableDetails]]
-    measurement_unit: Optional[str]
-    _validator: AbstractValidator
+
+    @property
+    def name(self) -> str: ...
+    @property
+    def group(self) -> Optional[Group]: ...
+    @property
+    def variant(self) -> str: ...
+    @property
+    def variant_details(self) -> Optional[Union[Any, FlowVariableDetails]]: ...
+    @property
+    def measurement_unit(self) -> Optional[str]: ...
+    @property
+    def size(self) -> Optional[int]: ...
+    @property
+    def _validator(self) -> AbstractValidator: ...
 
 
 class Product(Protocol):
     id: str
     code: str
-    name: str
-    _validator: AbstractValidator
+
+    @property
+    def name(self) -> str: ...
+    @property
+    def _validator(self) -> AbstractValidator: ...
 
 
 class File(Protocol):
-    id: str
-    name: str
-    type: str
+    @property
+    def id(self) -> Optional[str]: ...
+    @property
+    def name(self) -> str: ...
+    @property
+    def type(self) -> Literal["run", "spectra"]: ...
+    @property
+    def variant(self) -> Literal["run", "samples"]: ...
+    @property
+    def _data(self) -> Dict[str, Any]: ...
 
 
 class Experiment(Protocol):
-    id: str
-    name: str
-    product: Product
-    variables: list[Variable]
-    file_data: Any
-    _validator: AbstractValidator
+    @property
+    def id(self) -> str: ...
+    @property
+    def name(self) -> str: ...
+    @property
+    def product(self) -> Product: ...
+    @property
+    def variables(self) -> list[Variable]: ...
+    @property
+    def file_data(self) -> Any: ...
+    @property
+    def _validator(self) -> AbstractValidator: ...
 
     @staticmethod
-    def requests(client: Client) -> CRUDClient["Experiment"]:
-        ...
+    def requests(client: Client) -> CRUDClient["Experiment"]: ...
 
 
 class Recipe(Protocol):
-    id: str
-    name: str
-    product: Product
-    variables: list[Variable]
-    file_data: Any
-    _validator: AbstractValidator
+    @property
+    def id(self) -> str: ...
+    @property
+    def name(self) -> str: ...
+    @property
+    def product(self) -> Product: ...
+    @property
+    def variables(self) -> list[Variable]: ...
+    @property
+    def file_data(self) -> Any: ...
+    @property
+    def _validator(self) -> AbstractValidator: ...
 
     @staticmethod
-    def requests(client: Client) -> CRUDClient["Recipe"]:
-        ...
+    def requests(client: Client) -> CRUDClient["Recipe"]: ...
 
 
 class VariableValidator(AbstractValidator):
@@ -117,27 +152,34 @@ class VariableValidator(AbstractValidator):
             return False
 
         validation_errors = []
+        if entity.group is None or entity.group.id is None:
+            validation_errors.append("The variable group is missing the id field")
+            return False
+        else:
+            group_id = entity.group.id
 
         # validate if variable code already exists
         query_params = {
             "filterBy[code]": entity.code,
-            "filterBy[group._id]": entity.group.id,
+            "filterBy[group._id]": group_id,
             "archived": "any",
+            "limit": "0",
         }
 
         response = client.get(VARIABLES_URL, query_params=query_params)
-        if int(response.headers.get("x-total-count")) > 0:  # type: ignore
+        if int(response.headers.get("x-total-count", "0")) > 0:
             validation_errors.append(f"The variable code {entity.code} already exists")
 
         # Validate if variable name already exists
         query_params = {
             "filterBy[name]": entity.name,
-            "filterBy[group._id]": entity.group.id,
+            "filterBy[group._id]": group_id,
             "archived": "any",
+            "limit": "0",
         }
 
         response = client.get(VARIABLES_URL, query_params=query_params)
-        if int(response.headers.get("x-total-count")) > 0:  # type: ignore
+        if int(response.headers.get("x-total-count", "0")) > 0:
             validation_errors.append(f"The variable name {entity.name} already exists")
 
         # Validate if measurement unit is present
@@ -145,7 +187,7 @@ class VariableValidator(AbstractValidator):
             validation_errors.append("The measurement unit must be present")
 
         # missing variant validation
-        if entity.variant == "flow":
+        if entity.variant == "flow" and entity.variant_details is not None:
             references = entity.variant_details.references
             if references is None:
                 validation_errors.append("Flow variables must have a list of references")
@@ -204,6 +246,7 @@ class VariableValidator(AbstractValidator):
         # check if variable has no id. If it has no id, check if there is already a variable
         # with the same code, name and group in the DB. If so, set the id of the variable
         # and return True
+        assert entity.group is not None and entity.group.id is not None
 
         if not entity.id:
             query_params = {
@@ -215,7 +258,7 @@ class VariableValidator(AbstractValidator):
             }
 
             response = client.get(VARIABLES_URL, query_params=query_params)
-            if int(response.headers.get("x-total-count")) > 0:
+            if int(response.headers.get("x-total-count", "0")) > 0:
                 entity.id = response.json()[0]["id"]
                 return True
             else:
@@ -251,7 +294,9 @@ class ProductValidator(AbstractValidator):
 
         response = client.get(PRODUCTS_URL, query_params=query_params)
         if int(response.headers.get("x-total-count", "0")) > 0:
-            validation_errors.append(f"This product code {entity.code} is already taken")
+            validation_errors.append(
+                f"This product code {entity.code} is already taken"
+            )
 
         # Validate if variable name already exists
         query_params = {
@@ -261,7 +306,9 @@ class ProductValidator(AbstractValidator):
 
         response = client.get(PRODUCTS_URL, query_params=query_params)
         if int(response.headers.get("x-total-count", "0")) > 0:
-            validation_errors.append(f"This product name {entity.name} is already taken")
+            validation_errors.append(
+                f"This product name {entity.name} is already taken"
+            )
 
         if validation_errors:
             raise ImportValidationException("\n".join(validation_errors))
@@ -279,7 +326,7 @@ class ProductValidator(AbstractValidator):
             }
 
             response = client.get(PRODUCTS_URL, query_params=query_params)
-            if int(response.headers.get("x-total-count")) > 0:
+            if int(response.headers.get("x-total-count", "0")) > 0:
                 entity.id = response.json()[0]["id"]
                 return True
             else:
@@ -296,13 +343,13 @@ class AbstractFileValidator(ABC):
     @abstractmethod
     def format_data(
         cls,
-        variables: list[Variable],
+        variables: Sequence[Variable],
         data: Any,
     ) -> Any:
         """Format the file data"""
 
     @abstractmethod
-    def validate(self, variables: list[Variable], data: Any, **kwargs) -> bool:
+    def validate(self, variables: Sequence[Variable], data: Any, **kwargs) -> bool:
         """Validate the file for importing"""
 
     @abstractmethod
@@ -318,11 +365,12 @@ class RecipeFileValidator(AbstractFileValidator):
         self.duration = duration
 
     @classmethod
-    def format_data(cls, variables: list[Variable], data: Any) -> Any:
+    def format_data(cls, variables: Sequence[Variable], data: Any) -> Any:
         """Format the file data"""
 
         # only store the first value of X Variables
         for variable in variables:
+            assert variable.group is not None and variable.group.code is not None
             if variable.group.code == "X" and variable.code in data:
                 if len(data[variable.code]["timestamps"]) > 1:
                     warnings.warn(f"Variable {variable.code} has more than 1 timestamp. Only the first value will be stored")
@@ -340,14 +388,20 @@ class RecipeFileValidator(AbstractFileValidator):
         validation_errors = []
 
         # check if there are X variables
-        if not any(var.group is not None and var.group.code == "X" for var in variables):
-            raise ImportValidationException(("No variables 'X' found. 'X' variables are mandatory for the recipe."))
+        if not any(
+            var.group is not None and var.group.code == "X" for var in variables
+        ):
+            raise ImportValidationException(
+                ("No variables 'X' found. 'X' variables are mandatory for the recipe.")
+            )
 
         timedependent_variable_size = None
 
         for variable in variables:
             if variable.group is None or variable.group.code is None:
-                validation_errors.append(f"Variable {variable.code}'s group is missing the code field")
+                validation_errors.append(
+                    f"Variable {variable.code}'s group is missing the code field"
+                )
                 continue
             else:
                 group_code = variable.group.code
@@ -355,12 +409,15 @@ class RecipeFileValidator(AbstractFileValidator):
             if variable.code in data:
                 # check if there are output values
                 if groupcode_is_output(group_code):
-                    validation_errors.append(f"Variable {variable.code} is an Output, so it's not allowed in the recipe")
+                    validation_errors.append(
+                        f"Variable {variable.code} is an Output,"
+                        " so it's not allowed in the recipe"
+                    )
                     continue
 
                 # check if , for feedConc variables, the corresponding feed
                 # and X variables are present
-                if variable.group.code == "FeedConc":
+                if group_code == "FeedConc":
                     var_code = variable.code
                     feedconc_codes = var_code.split("_")
                     if len(feedconc_codes) != 2:
@@ -403,7 +460,7 @@ class RecipeFileValidator(AbstractFileValidator):
                     validation_errors.append((f"Variable {variable.code} contains None values, that are not allowed"))
                     continue
 
-                if groupcode_is_timedependent(variable.group.code):
+                if groupcode_is_timedependent(group_code):
                     if len(timestamps) < 2:
                         validation_errors.append((f"Variable {variable.code} must have the more than 1 timestamp"))
                         continue
@@ -429,7 +486,12 @@ class RecipeFileValidator(AbstractFileValidator):
                 else:
                     # validate if non time dependent inputs have length of 1 (only initial values)
                     if len(values) != 1 and group_code != "X":
-                        validation_errors.append((f"Input {variable.code} only requires initial values, so it must have a length of 1"))
+                        validation_errors.append(
+                            (
+                                f"Input {variable.code} only requires initial "
+                                f"values, so it must have a length of 1"
+                            )
+                        )
                         continue
 
                 if variant_is_numeric(variable.variant):
@@ -438,7 +500,7 @@ class RecipeFileValidator(AbstractFileValidator):
                         continue
 
             else:
-                if groupcode_is_output(variable.group.code):
+                if groupcode_is_output(group_code):
                     continue
 
                 validation_errors.append(f"Variable {variable.code} is missing from the data dictionary")
@@ -578,7 +640,9 @@ class SpectraFileValidator(AbstractFileValidator):
         """Format the file data"""
         return data
 
-    def validate(self, variables: Sequence[Variable], data: Any, variant: str = "run") -> bool:
+    def validate(
+        self, variables: Sequence[Variable], data: Any, variant: str = "run"
+    ) -> bool:
         """Validate the file for importing"""
         validation_errors = []
 
@@ -594,7 +658,9 @@ class SpectraFileValidator(AbstractFileValidator):
         spectra_variable = None
         for variable in variables:
             if variable.group is None or variable.group.code is None:
-                validation_errors.append(f"Variable {variable.code}'s group is missing the code field")
+                validation_errors.append(
+                    f"Variable {variable.code}'s group is missing the code field"
+                )
                 continue
             else:
                 group_code = variable.group.code

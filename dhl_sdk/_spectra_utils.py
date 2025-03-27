@@ -9,6 +9,7 @@ import numpy as np
 from dhl_sdk._utils import (
     Instance,
     Metadata,
+    OnlyId,
     PipelineStage,
     PredictionPipelineRequest,
     SpectraPredictionConfig,
@@ -30,6 +31,9 @@ class Dataset(Protocol):
 
 
 class SpectraModel(Protocol):
+    @property
+    def id(self) -> str: ...
+
     @property
     def inputs(self) -> list[str]: ...
 
@@ -60,15 +64,16 @@ def validate_spectra_format(spectra: SpectraData) -> list[list[float]]:
         If the spectra is not a list or numpy array.
     """
 
+    spectra_list: list[list[float]]
     if isinstance(spectra, np.ndarray):
-        spectra = spectra.tolist()
+        spectra_list = spectra.tolist()
 
     elif isinstance(spectra, list):
-        pass
+        spectra_list = spectra
     else:
         raise InvalidSpectraException(f"Spectra must be a list or numpy array, but got {type(spectra)}")
 
-    return spectra
+    return spectra_list
 
 
 def convert_to_request(
@@ -107,7 +112,9 @@ def convert_to_request(
     # handle pagination
     for i in range(0, len(spectra), batch_size):
         instance: list[Optional[Instance]] = [None] * n_vars
-        instance[spectrum_index] = Instance.model_validate({"values": spectra[i : i + batch_size]})
+        instance[spectrum_index] = Instance.model_validate(
+            {"values": spectra[i : i + batch_size]}
+        )
 
         if inputs is not None:
             for input_id, input_values in inputs.items():
@@ -119,7 +126,7 @@ def convert_to_request(
         json_data = PredictionPipelineRequest(
             instances=[instance],
             metadata=Metadata(
-                variables=[{"id": var.id} for var in model.dataset.variables],
+                variables=[OnlyId(id=var.id) for var in model.dataset.variables],
             ),
             stages=[PipelineStage(config=SpectraPredictionConfig(), id=model.id)],
         ).model_dump(

@@ -11,7 +11,6 @@ Classes:
     - Product: Represents a structure for products present in experiments and recipes
 """
 
-
 import copy
 import csv
 from abc import ABC, abstractmethod
@@ -297,9 +296,9 @@ class Variable(BaseModel, DataBaseEntity):
 
     _validator: AbstractValidator = PrivateAttr(VariableValidator())
 
-    @model_validator(mode="before")  # type: ignore
+    @model_validator(mode="before")  # type: ignore - validator type hard to get right
     @classmethod
-    def _validate_model_struct(cls, data) -> dict:
+    def _validate_model_struct(cls, data):
         """Validate the structure of the variable"""
 
         variant = Variant(data["variant"])
@@ -465,7 +464,7 @@ class Variable(BaseModel, DataBaseEntity):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["Variable"]:
-        return CRUDClient["Variable"](client, VARIABLES_URL, Variable)
+        return CRUDClient["Variable"](client, VARIABLES_URL, Variable.__call__)
 
 
 class Product(BaseModel, DataBaseEntity):
@@ -526,7 +525,7 @@ class Product(BaseModel, DataBaseEntity):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["Product"]:
-        return CRUDClient["Product"](client, PRODUCTS_URL, Product)
+        return CRUDClient["Product"](client, PRODUCTS_URL, Product.__call__)
 
 
 class File(BaseModel):
@@ -535,7 +534,7 @@ class File(BaseModel):
     id: Optional[str] = Field(default=None, alias="id")
     name: str = Field(alias="name")
     description: str = Field(alias="description")
-    type: str = Field(alias="type")
+    type: Literal["run", "spectra"] = Field(alias="type")
     variant: Literal["run", "samples"] = Field(default="run", alias="variant")
 
     _data: dict[str, dict[str, list]] = PrivateAttr()
@@ -646,11 +645,14 @@ class Recipe(BaseModel, DataBaseEntity):
         if not self._validator.validate(entity=self, client=client):
             return False
 
+        if self.file_data is None:
+            raise ImportValidationException("File data is missing")
+
         file_id = None
         if self.file_data.validate_import(self.variables):
             file_id = self.file_data.create_file(client)
 
-        if not file_id:
+        if not isinstance(file_id, str):
             raise ImportValidationException("File data could not be imported")
 
         for variable in self.variables:
@@ -719,7 +721,7 @@ class Recipe(BaseModel, DataBaseEntity):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["Recipe"]:
-        return CRUDClient["Recipe"](client, RECIPES_URL, Recipe)
+        return CRUDClient["Recipe"](client, RECIPES_URL, Recipe.__call__)
 
 
 class Experiment(BaseModel, DataBaseEntity):
@@ -764,6 +766,9 @@ class Experiment(BaseModel, DataBaseEntity):
         if not self._validator.validate(entity=self, client=client):
             return False
 
+        if self.file_data is None:
+            raise ImportValidationException("File data is missing")
+
         file_id = None
         if self.file_data.validate_import(self.variables, self.variant_details):
             file_id = self.file_data.create_file(client)
@@ -780,7 +785,9 @@ class Experiment(BaseModel, DataBaseEntity):
             # skip if variable is spectra
             if variable.variant == Variant.SPECTRUM:
                 continue
-            self.instances.append(Instances(column=variable.code, fileId=file_id))  # FIXME: code is not unique
+            self.instances.append(
+                Instances(column=variable.code, fileId=file_id)
+            )  # FIXME: code is not unique
 
         return True
 
@@ -926,4 +933,4 @@ class Experiment(BaseModel, DataBaseEntity):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["Experiment"]:
-        return CRUDClient["Experiment"](client, EXPERIMENTS_URL, Experiment)
+        return CRUDClient["Experiment"](client, EXPERIMENTS_URL, Experiment.__call__)

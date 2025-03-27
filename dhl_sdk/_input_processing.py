@@ -1,9 +1,8 @@
-
 import math
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional, Protocol, Union
+from typing import Optional, Protocol, Sequence, Union, cast
 from pydantic import Json
 
 import numpy as np
@@ -16,6 +15,7 @@ from dhl_sdk._spectra_utils import (
 )
 from dhl_sdk._utils import (
     Metadata,
+    OnlyId,
     PipelineStage,
     PredictionPipelineRequest,
     PredictionRequestConfig,
@@ -38,20 +38,20 @@ class Group(Protocol):
 
 class Variable(Protocol):
     @property
+    def id(self) -> str: ...
+
+    @property
     def group(self) -> Group: ...
 
     @property
     def code(self) -> str: ...
-
-    @property
-    def id(self) -> str: ...
 
     def matches_key(self, key: str) -> bool: ...
 
 
 class Dataset(Protocol):
     @property
-    def variables(self) -> list[Variable]: ...
+    def variables(self) -> Sequence[Variable]: ...
 
 
 class Model(Protocol):
@@ -212,15 +212,15 @@ class CultivationPropagationPreprocessor(Preprocessor):
 
         - Validates the structure and values of the timestamps
             - Valid timestamps should be a list of integers, have a length of at least 2,
-            contain valid numeric values,be in ascending order, have positive values and be unique.
+            contain valid numeric values, be in ascending order, have positive values and be unique.
         - Validates the structure and values of the inputs
             - The inputs should be organized with variable codes as
                 keys and lists of input values as values.
         - Validates the inputs based on the model variables
-            - Garantees that all the mandatory model variables are present in the inputs
-            - Garantees that the inputs that need to be complete for the recipe
+            - Guarantees that all the mandatory model variables are present in the inputs
+            - Guarantees that the inputs that need to be complete for the recipe
                 have the same length as the timestamps
-            - Garantees that the initial condition variables only have one value
+            - Guarantees that the initial condition variables only have one value
 
         Returns
         -------
@@ -235,17 +235,24 @@ class CultivationPropagationPreprocessor(Preprocessor):
             Exception raised when Inputs are not valid for prediction.
         """
 
+        timestamp_list: list[Union[int, float]]
         if isinstance(self.timestamps, np.ndarray):
-            self.timestamps = self.timestamps.tolist()
+            timestamp_list = self.timestamps.tolist()
+        else:
+            timestamp_list = self.timestamps
 
         # Validate timestamps
-        validated_timestamps = _validate_upstream_timestamps(timestamps=timestamp_list, timestamps_unit=self.timestamps_unit)
+        validated_timestamps = _validate_upstream_timestamps(
+            timestamps=timestamp_list, timestamps_unit=self.timestamps_unit
+        )
 
         # Validate inputs
         _validate_upstream_inputs(inputs=self.inputs)
 
         # validate inputs with model variables
-        _validate_propagation_with_variables(validated_timestamps, self.inputs, self.model)
+        _validate_propagation_with_variables(
+            validated_timestamps, self.inputs, self.model
+        )
         self.timestamps = cast(list[Union[int, float]], validated_timestamps)
 
         return True
@@ -285,7 +292,7 @@ class CultivationPropagationPreprocessor(Preprocessor):
         json_data = PredictionPipelineRequest(
             instances=instances,
             metadata=Metadata(
-                variables=[{"id": var.id} for var in input_variables],
+                variables=[OnlyId(id=var.id) for var in input_variables],
             ),
             stages=[PipelineStage(config=self.prediction_config, id=self.model.id)],
         ).model_dump(
@@ -340,20 +347,27 @@ class CultivationHistoricalPreprocessor(Preprocessor):
             Exception raised when Inputs is not valid for prediction.
         """
 
+        timestamp_list: list[Union[int, float]]
         if isinstance(self.timestamps, np.ndarray):
-            self.timestamps = self.timestamps.tolist()
+            timestamp_list = self.timestamps.tolist()
+        else:
+            timestamp_list = self.timestamps
 
         # Validate timestamps
-        validated_timestamps = _validate_upstream_timestamps(timestamps=timestamp_list, timestamps_unit=self.timestamps_unit)
+        validated_timestamps = _validate_upstream_timestamps(
+            timestamps=timestamp_list, timestamps_unit=self.timestamps_unit
+        )
 
         # Validate steps
-        _validate_historical_steps(steps=self.steps, timestamps=self.timestamps)
+        _validate_historical_steps(steps=self.steps, timestamps=validated_timestamps)
 
         # Validate inputs
         _validate_upstream_inputs(inputs=self.inputs)
 
         # # validate inputs with model variables
         _validate_historical_with_variables(self.inputs, self.model)
+
+        self.timestamps = cast(list[Union[int, float]], validated_timestamps)
 
         return True
 
@@ -393,7 +407,7 @@ class CultivationHistoricalPreprocessor(Preprocessor):
         json_data = PredictionPipelineRequest(
             instances=instances,
             metadata=Metadata(
-                variables=[{"id": var.id} for var in input_variables],
+                variables=[OnlyId(id=var.id) for var in input_variables],
             ),
             stages=[PipelineStage(config=self.prediction_config, id=self.model.id)],
         ).model_dump(

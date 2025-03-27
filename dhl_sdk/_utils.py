@@ -125,7 +125,7 @@ class PredictionPipelineRequest(BaseModel):
 
     instances: list[list[Optional[Instance]]]
     metadata: Metadata
-    stages: list[PipelineStage] = None
+    stages: list[PipelineStage] = []
 
 
 class PredictionResponse(BaseModel):

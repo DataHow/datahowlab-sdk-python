@@ -29,11 +29,12 @@ class DataBaseClient(Protocol):
     _client: Client
 
 
+C = TypeVar("C", covariant=True)
 T = TypeVar("T")
 
 
-class Constructor(Protocol[T]):
-    def __call__(self, **kwargs) -> T: ...
+class Constructor(Protocol[C]):
+    def __call__(self, **kwargs) -> C: ...
 
 
 class CRUDClient(Generic[T]):
@@ -71,7 +72,10 @@ class CRUDClient(Generic[T]):
 
         response = self._client.get(self._base_url, query_params=query_params)
         total = int(response.headers.get("x-total-count", "0"))
-        entities = [self._constructor(**entity, client=self._client) for entity in response.json()]
+        entities = [
+            self._constructor(**entity, client=self._client)
+            for entity in response.json()
+        ]
 
         return entities, total
 

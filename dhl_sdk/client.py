@@ -8,7 +8,7 @@ Classes:
     - DataHowLabClient: main client to interact with the DHL API
 """
 
-from typing import Any, Dict, Literal, Optional, Type, TypeVar, cast
+from typing import Any, Dict, Literal, Optional, Type, TypeVar, Union, cast
 from urllib.parse import urlencode
 
 import requests
@@ -20,7 +20,7 @@ from urllib3.util.retry import Retry
 from dhl_sdk._constants import PROCESS_UNIT_MAP
 from dhl_sdk._utils import VariableGroupCodes, urljoin
 from dhl_sdk.authentication import APIKeyAuthentication
-from dhl_sdk.crud import Result
+from dhl_sdk.crud import CRUDClient, Result
 from dhl_sdk.db_entities import DataBaseEntity, Experiment, Product, Recipe
 from dhl_sdk.entities import CultivationProject, Project, SpectraProject, Variable
 
@@ -224,9 +224,9 @@ class Client:
             if value is not None
         }
 
-        projects = project_type.requests(self)
+        projects = cast(CRUDClient[T], project_type.requests(self))
 
-        result = Result(
+        result = Result[project_type](
             offset=offset,
             limit=10,
             query_params=filter_params,
@@ -247,7 +247,7 @@ class DataHowLabClient:
         self,
         auth_key: APIKeyAuthentication,
         base_url: str,
-        verify_ssl: Union[bool, str] = True,
+        verify_ssl: bool = True,
     ):
         """
         Parameters
@@ -256,10 +256,9 @@ class DataHowLabClient:
             An instance of the APIKeyAuthentication class containing the user's API key.
         base_url : str
             The URL address of the datahowlab application
-        verify_ssl : Union[bool, str], optional
-            Either a boolean, in which case it controls whether we verify the server's
-            TLS certificate, or a string, in which case it must be a path to a CA bundle
-            to use. For more info check the documentation for python's requests.request.
+        verify_ssl : bool, optional
+            Controls whether we verify the server's TLS certificate. For more info check
+            the documentation for python's requests.request.
             By default True.
 
         Returns
