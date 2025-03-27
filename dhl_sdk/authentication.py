@@ -1,24 +1,24 @@
 """Authentication module for DHL SDK
 
-This module provides functionality for handling 
-API Key Authentication. It allows you to securely 
-manage and use API keys for authenticating requests 
-to the DataHowLab API. 
+This module provides functionality for handling
+API Key Authentication. It allows you to securely
+manage and use API keys for authenticating requests
+to the DataHowLab API.
 
 The module includes a class, `APIKeyAuthentication`, that can
-be used to obtain and include API Key authorization headers in 
-your requests. It also offers the flexibility to either pass 
+be used to obtain and include API Key authorization headers in
+your requests. It also offers the flexibility to either pass
 an API key as an argument or retrieve it from environment variables.
 
 Classes:
-    - APIKeyAuthentication: Manages API Key authentication and provides 
+    - APIKeyAuthentication: Manages API Key authentication and provides
       methods for generating authorization headers using the API Key.
 
 Usage:
     To use this module, create an instance of the `APIKeyAuthentication`
-    class, passing an API key as an argument or allowing it 
-    to retrieve the API key from environment variables. 
-    You can then call the `get_headers` method to obtain the authorization 
+    class, passing an API key as an argument or allowing it
+    to retrieve the API key from environment variables.
+    You can then call the `get_headers` method to obtain the authorization
     headers, which can be added to your requests.
 
 """
@@ -28,7 +28,6 @@ from typing import Optional
 
 
 class APIKeyAuthentication:
-    # pylint: disable=too-few-public-methods
     """
     API Key Authentication
 

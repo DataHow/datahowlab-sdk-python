@@ -1,6 +1,5 @@
-""" New file data importers for DHL SDK"""
+"""New file data importers for DHL SDK"""
 
-# pylint: disable=missing-function-docstring, arguments-differ, protected-access
 import csv
 from io import StringIO
 from typing import Any, Dict, Literal, Protocol
@@ -16,16 +15,14 @@ class File(Protocol):
     variant: Literal["run", "samples"]
     _data: Dict[str, Any]
 
-    def create_request_body(self) -> Dict[str, Any]:
-        ...
+    def create_request_body(self) -> Dict[str, Any]: ...
 
     def model_dump(
         self,
         exclude_none: bool = ...,
         by_alias: bool = ...,
         include: dict[str, Any] = ...,
-    ) -> dict[str, Any]:
-        ...
+    ) -> dict[str, Any]: ...
 
 
 class RunFileImporter:
@@ -122,9 +119,7 @@ class SpectraFileImporter:
         csv_writer = csv.writer(csv_data)
 
         # Write data rows
-        for timestamp, value_list in zip(
-            spectra_data[sample_id], spectra_data["values"]
-        ):
+        for timestamp, value_list in zip(spectra_data[sample_id], spectra_data["values"]):
             csv_writer.writerow([timestamp] + value_list)
 
         csv_string = csv_data.getvalue()

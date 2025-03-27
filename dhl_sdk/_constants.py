@@ -1,7 +1,7 @@
 """
-This module defines all the constants used across the project. Constants are 
-defined as variables with uppercase names to signify their immutability and 
-importance. This file serves as a single source of truth for static values 
+This module defines all the constants used across the project. Constants are
+defined as variables with uppercase names to signify their immutability and
+importance. This file serves as a single source of truth for static values
 to improve code readability, maintainability, and consistency.
 """
 

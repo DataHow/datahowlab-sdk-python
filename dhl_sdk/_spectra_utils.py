@@ -1,4 +1,4 @@
-"""This module contains utility functions used for spectra 
+"""This module contains utility functions used for spectra
 validation and formatting in the SDK
 """
 
@@ -23,33 +23,24 @@ SpectraData = Union[
 
 
 class Dataset(Protocol):
-    # pylint: disable=missing-class-docstring
-    # pylint: disable=missing-function-docstring
     @property
-    def variables(self) -> list:
-        ...
+    def variables(self) -> list: ...
 
-    def get_spectra_index(self) -> int:
-        ...
+    def get_spectra_index(self) -> int: ...
 
 
 class SpectraModel(Protocol):
-    # pylint: disable=missing-class-docstring
-    # pylint: disable=missing-function-docstring
     @property
-    def inputs(self) -> list[str]:
-        ...
+    def inputs(self) -> list[str]: ...
 
     @property
-    def dataset(self) -> Dataset:
-        ...
+    def dataset(self) -> Dataset: ...
 
     @property
-    def spectra_size(self) -> int:
-        ...
+    def spectra_size(self) -> int: ...
 
 
-def _validate_spectra_format(spectra: SpectraData) -> list[list[float]]:
+def validate_spectra_format(spectra: SpectraData) -> list[list[float]]:
     """
     Validates and formats the spectra.
 
@@ -75,14 +66,12 @@ def _validate_spectra_format(spectra: SpectraData) -> list[list[float]]:
     elif isinstance(spectra, list):
         pass
     else:
-        raise InvalidSpectraException(
-            f"Spectra must be a list or numpy array, but got {type(spectra)}"
-        )
+        raise InvalidSpectraException(f"Spectra must be a list or numpy array, but got {type(spectra)}")
 
     return spectra
 
 
-def _convert_to_request(
+def convert_to_request(
     spectra: SpectraData,
     model: SpectraModel,
     inputs: Optional[dict] = None,
@@ -117,16 +106,14 @@ def _convert_to_request(
     request_data = []
     # handle pagination
     for i in range(0, len(spectra), batch_size):
-        instance = [None] * n_vars
-        instance[spectrum_index] = Instance(values=spectra[i : i + batch_size])
+        instance: list[Optional[Instance]] = [None] * n_vars
+        instance[spectrum_index] = Instance.model_validate({"values": spectra[i : i + batch_size]})
 
         if inputs is not None:
             for input_id, input_values in inputs.items():
                 for index, variable in enumerate(variables):
                     if variable.id == input_id:
-                        instance[index] = Instance(
-                            values=input_values[i : i + batch_size]
-                        )
+                        instance[index] = Instance(values=input_values[i : i + batch_size])
                         break
 
         json_data = PredictionPipelineRequest(

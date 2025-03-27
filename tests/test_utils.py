@@ -1,4 +1,3 @@
-# pylint: disable=missing-docstring
 import unittest
 from unittest.mock import Mock
 
@@ -9,7 +8,7 @@ from dhl_sdk._input_processing import (
     CultivationHistoricalPreprocessor,
     CultivationPropagationPreprocessor,
     SpectraPreprocessor,
-    _validate_spectra_format,
+    validate_spectra_format,
     format_predictions,
 )
 from dhl_sdk._utils import Instance, PredictionResponse, PredictionRequestConfig
@@ -35,7 +34,7 @@ class TestSpectraUtils(unittest.TestCase):
         self.model_no_inputs = Mock()
         self.model_no_inputs.id = "model-id-1"
         self.model_no_inputs.inputs = []
-        self.model_no_inputs.dataset.variables = [Variable(**spectrum_var)]
+        self.model_no_inputs.dataset.variables = [Variable.model_validate(spectrum_var)]
         self.model_with_inputs = Mock()
         self.model_with_inputs.id = "model-id-2"
         self.model_with_inputs.dataset.variables = [
@@ -52,9 +51,9 @@ class TestSpectraUtils(unittest.TestCase):
         spectra2 = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], dtype=np.float32)
         spectra3 = "spectra"
 
-        self.assertEqual(_validate_spectra_format(spectra1), spectra1)
-        self.assertEqual(_validate_spectra_format(spectra2), spectra1)
-        self.assertRaises(InvalidSpectraException, _validate_spectra_format, spectra3)
+        self.assertEqual(validate_spectra_format(spectra1), spectra1)
+        self.assertEqual(validate_spectra_format(spectra2), spectra1)
+        self.assertRaises(InvalidSpectraException, validate_spectra_format, spectra3)
 
     def test_format_predictions(self):
         predictions = [
@@ -64,12 +63,8 @@ class TestSpectraUtils(unittest.TestCase):
                         None,
                         None,
                         None,
-                        Instance(
-                            values=[1, 2, 3], highValues=[2, 3, 5], lowValues=[0, 1, 1]
-                        ),
-                        Instance(
-                            values=[4, 5, 6], highValues=[5, 6, 6], lowValues=[1, 1, 1]
-                        ),
+                        Instance(values=[1, 2, 3], highValues=[2, 3, 5], lowValues=[0, 1, 1]),
+                        Instance(values=[4, 5, 6], highValues=[5, 6, 6], lowValues=[1, 1, 1]),
                     ]
                 ]
             ),
@@ -79,20 +74,14 @@ class TestSpectraUtils(unittest.TestCase):
                         None,
                         None,
                         None,
-                        Instance(
-                            values=[1, 2, 3], highValues=[2, 3, 5], lowValues=[0, 1, 1]
-                        ),
-                        Instance(
-                            values=[4, 5, 6], highValues=[5, 6, 6], lowValues=[1, 1, 1]
-                        ),
+                        Instance(values=[1, 2, 3], highValues=[2, 3, 5], lowValues=[0, 1, 1]),
+                        Instance(values=[4, 5, 6], highValues=[5, 6, 6], lowValues=[1, 1, 1]),
                     ]
                 ]
             ),
         ]
 
-        formatted_predictions = format_predictions(
-            predictions, model=self.model_with_inputs
-        )
+        formatted_predictions = format_predictions(predictions, model=self.model_with_inputs)
 
         self.assertDictEqual(
             formatted_predictions,
@@ -181,11 +170,7 @@ class TestSpectraUtils(unittest.TestCase):
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
             processor.format()
-            self.assertTrue(
-                ex.exception.message.startswith(
-                    "No matching Input found for key: var10"
-                )
-            )
+            self.assertTrue(ex.exception.message.startswith("No matching Input found for key: var10"))
 
         inputs = {"var1": [0, 1, 0], "var2": [1, 1, 1]}
         processor = SpectraPreprocessor(spectra=spectra, model=model, inputs=inputs)
@@ -196,21 +181,13 @@ class TestSpectraUtils(unittest.TestCase):
         processor = SpectraPreprocessor(spectra=spectra, model=model, inputs=inputs)
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
-            self.assertTrue(
-                ex.exception.message.startswith(
-                    "The Number of values does not match the number of spectra"
-                )
-            )
+            self.assertTrue(ex.exception.message.startswith("The Number of values does not match the number of spectra"))
 
         inputs = {"var1": [0, None, 0], "var2": [1, 1, 1]}
         processor = SpectraPreprocessor(spectra=spectra, model=model, inputs=inputs)
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
-            self.assertTrue(
-                ex.exception.message.startswith(
-                    "Invalid Inputs: The Inputs contains not valid values for input: var1"
-                )
-            )
+            self.assertTrue(ex.exception.message.startswith("Invalid Inputs: The Inputs contains not valid values for input: var1"))
 
     def test_convert_to_request(self):
         model = self.model_with_inputs
@@ -342,115 +319,67 @@ class TestCultivationUtils(unittest.TestCase):
         inputs = {"var1": [10], "var2": [20], "var3": [1, 2, 3], "var4": [40]}
         timestamps = [1, 2, 3]
 
-        processor = CultivationPropagationPreprocessor(
-            np.array(timestamps), "m", inputs, self.prediction_config, model
-        )
+        processor = CultivationPropagationPreprocessor(np.array(timestamps), "m", inputs, self.prediction_config, model)
         processor.validate()
         processor.timestamps = [60, 120, 180]
 
-        processor = CultivationPropagationPreprocessor(
-            {"timestamps": [1, 2]}, "s", inputs, self.prediction_config, model
-        )
+        processor = CultivationPropagationPreprocessor({"timestamps": [1, 2]}, "s", inputs, self.prediction_config, model)
         with self.assertRaises(InvalidTimestampsException) as ex:
             processor.validate()
-            self.assertTrue(
-                ex.exception.message.startswith("Timestamps must be a list of numbers")
-            )
+            self.assertTrue(ex.exception.message.startswith("Timestamps must be a list of numbers"))
 
-        processor = CultivationPropagationPreprocessor(
-            [2], "s", inputs, self.prediction_config, model
-        )
+        processor = CultivationPropagationPreprocessor([2], "s", inputs, self.prediction_config, model)
         with self.assertRaises(InvalidTimestampsException) as ex:
             processor.validate()
-            self.assertTrue(
-                ex.exception.message.startswith(
-                    "Timestamps must be a list of at least 2 values"
-                )
-            )
+            self.assertTrue(ex.exception.message.startswith("Timestamps must be a list of at least 2 values"))
 
-        processor = CultivationPropagationPreprocessor(
-            [1, 2], "s", inputs, self.prediction_config, model
-        )
+        processor = CultivationPropagationPreprocessor([1, 2], "s", inputs, self.prediction_config, model)
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
-            self.assertTrue(
-                ex.exception.message.startswith(
-                    "The recipe requires var3 to be complete"
-                )
-            )
+            self.assertTrue(ex.exception.message.startswith("The recipe requires var3 to be complete"))
 
-        processor = CultivationPropagationPreprocessor(
-            [6, 4, 3], "s", inputs, self.prediction_config, model
-        )
+        processor = CultivationPropagationPreprocessor([6, 4, 3], "s", inputs, self.prediction_config, model)
 
         with self.assertRaises(InvalidTimestampsException) as ex:
             processor.validate()
-            self.assertTrue(
-                ex.exception.message.startswith("Timestamps must be in ascending order")
-            )
+            self.assertTrue(ex.exception.message.startswith("Timestamps must be in ascending order"))
 
-        processor = CultivationPropagationPreprocessor(
-            [1, 2, 3], "m", inputs, self.prediction_config, model
-        )
+        processor = CultivationPropagationPreprocessor([1, 2, 3], "m", inputs, self.prediction_config, model)
         processor.validate()
         self.assertEqual(processor.timestamps, [60, 120, 180])
 
-        processor = CultivationPropagationPreprocessor(
-            ["1", 2, 3], "h", inputs, self.prediction_config, model
-        )
+        processor = CultivationPropagationPreprocessor(["1", 2, 3], "h", inputs, self.prediction_config, model)
 
         with self.assertRaises(InvalidTimestampsException) as ex:
             processor.validate()
-            self.assertTrue(
-                ex.exception.message.startswith(
-                    "All values of timestamps must be valid numeric values"
-                )
-            )
+            self.assertTrue(ex.exception.message.startswith("All values of timestamps must be valid numeric values"))
 
-        processor = CultivationPropagationPreprocessor(
-            [1, 2, 3], "random", inputs, self.prediction_config, model
-        )
+        processor = CultivationPropagationPreprocessor([1, 2, 3], "random", inputs, self.prediction_config, model)
         with self.assertRaises(InvalidTimestampsException) as ex:
             processor.validate()
-            self.assertTrue(
-                ex.exception.message.startswith(
-                    "Invalid timestamps unit 'random' found."
-                )
-            )
+            self.assertTrue(ex.exception.message.startswith("Invalid timestamps unit 'random' found."))
 
-        processor = CultivationPropagationPreprocessor(
-            [-1, 2, 4], "h", inputs, self.prediction_config, model
-        )
+        processor = CultivationPropagationPreprocessor([-1, 2, 4], "h", inputs, self.prediction_config, model)
         with self.assertRaises(InvalidTimestampsException) as ex:
             processor.validate()
-            self.assertTrue(
-                ex.exception.message.startswith("Timestamps must be positive")
-            )
+            self.assertTrue(ex.exception.message.startswith("Timestamps must be positive"))
 
-        processor = CultivationPropagationPreprocessor(
-            [1, 2, 2], "h", inputs, self.prediction_config, model
-        )
+        processor = CultivationPropagationPreprocessor([1, 2, 2], "h", inputs, self.prediction_config, model)
         with self.assertRaises(InvalidTimestampsException) as ex:
             processor.validate()
-            self.assertTrue(
-                ex.exception.message.startswith("Timestamps must be unique")
-            )
+            self.assertTrue(ex.exception.message.startswith("Timestamps must be unique"))
 
     def test_input_validation(self):
         model = self.model
         inputs = {"var1": [10], "var2": [20], "var3": [1, 2, 3], "var4": [40]}
         timestamps = [1, 2, 3]
 
-        processor = CultivationPropagationPreprocessor(
-            timestamps, "s", inputs, self.prediction_config, model
-        )
+        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, self.prediction_config, model)
 
         processor.validate()
 
         inputs = {"var1": [10], "var3": [1, 2, 3], "var4": [40]}
-        processor = CultivationPropagationPreprocessor(
-            timestamps, "s", inputs, self.prediction_config, model
-        )
+        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, self.prediction_config, model)
 
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
@@ -460,63 +389,37 @@ class TestCultivationUtils(unittest.TestCase):
             )
 
         inputs = {"var1": [10], "var2": [20], "var3": [1], "var4": [40]}
-        processor = CultivationPropagationPreprocessor(
-            timestamps, "s", inputs, self.prediction_config, model
-        )
+        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, self.prediction_config, model)
 
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
-            self.assertTrue(
-                ex.exception.message.startswith(
-                    "The recipe requires var3 to be complete"
-                )
-            )
+            self.assertTrue(ex.exception.message.startswith("The recipe requires var3 to be complete"))
 
         inputs = {"var1": [10], "var2": [20], "var3": [1, 3, 5]}
-        processor = CultivationPropagationPreprocessor(
-            timestamps, "s", inputs, self.prediction_config, model
-        )
+        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, self.prediction_config, model)
 
         processor.validate()
 
         inputs = {"var1": [10, 20], "var2": [20], "var3": [1, 3, 5]}
-        processor = CultivationPropagationPreprocessor(
-            timestamps, "s", inputs, self.prediction_config, model
-        )
+        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, self.prediction_config, model)
 
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
-            self.assertTrue(
-                ex.exception.message.startswith(
-                    "Input var1 only requires initial values"
-                )
-            )
+            self.assertTrue(ex.exception.message.startswith("Input var1 only requires initial values"))
 
         inputs = {"var1": [10], "var2": [20], "var3": [1, "a", 5], "var4": [40, 50]}
-        processor = CultivationPropagationPreprocessor(
-            timestamps, "s", inputs, self.prediction_config, model
-        )
+        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, self.prediction_config, model)
 
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
-            self.assertTrue(
-                ex.exception.message.startswith(
-                    "All values of input var3 must be valid numeric values"
-                )
-            )
+            self.assertTrue(ex.exception.message.startswith("All values of input var3 must be valid numeric values"))
 
         inputs = {"var1": ["a"], "var2": [20], "var3": [1, 3, 5], "var4": [40, 50]}
-        processor = CultivationPropagationPreprocessor(
-            timestamps, "s", inputs, self.prediction_config, model
-        )
+        processor = CultivationPropagationPreprocessor(timestamps, "s", inputs, self.prediction_config, model)
 
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
-            self.assertTrue(
-                ex.exception.message.startswith(
-                    "All values of input var1 must be valid numeric values"
-                )
-            )
+            self.assertTrue(ex.exception.message.startswith("All values of input var1 must be valid numeric values"))
 
     def test_historical_model_inputs(self):
         model = self.model
@@ -529,16 +432,12 @@ class TestCultivationUtils(unittest.TestCase):
         timestamps = [1, 2, 3]
         steps = [0, 1, 2]
 
-        processor = CultivationHistoricalPreprocessor(
-            np.array(timestamps), "d", steps, inputs, self.prediction_config, model
-        )
+        processor = CultivationHistoricalPreprocessor(np.array(timestamps), "d", steps, inputs, self.prediction_config, model)
         processor.validate()
         processor.timestamps = [86400, 172800, 259200]
 
         inputs = None
-        processor = CultivationHistoricalPreprocessor(
-            timestamps, "d", steps, inputs, self.prediction_config, model
-        )
+        processor = CultivationHistoricalPreprocessor(timestamps, "d", steps, inputs, self.prediction_config, model)
 
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
@@ -548,9 +447,7 @@ class TestCultivationUtils(unittest.TestCase):
             )
 
         inputs = [10, 20, 30]
-        processor = CultivationHistoricalPreprocessor(
-            timestamps, "d", steps, inputs, self.prediction_config, model
-        )
+        processor = CultivationHistoricalPreprocessor(timestamps, "d", steps, inputs, self.prediction_config, model)
 
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
@@ -565,9 +462,7 @@ class TestCultivationUtils(unittest.TestCase):
             "var3": [1, 2, 3],
             "var4": [40, 50, 60],
         }
-        processor = CultivationHistoricalPreprocessor(
-            timestamps, "d", steps, inputs, self.prediction_config, model
-        )
+        processor = CultivationHistoricalPreprocessor(timestamps, "d", steps, inputs, self.prediction_config, model)
 
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
@@ -582,9 +477,7 @@ class TestCultivationUtils(unittest.TestCase):
             "var3": [1, 2, 3],
             "var4": [40, 50, 60],
         }
-        processor = CultivationHistoricalPreprocessor(
-            timestamps, "d", steps, inputs, self.prediction_config, model
-        )
+        processor = CultivationHistoricalPreprocessor(timestamps, "d", steps, inputs, self.prediction_config, model)
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
             self.assertEqual(
@@ -597,9 +490,7 @@ class TestCultivationUtils(unittest.TestCase):
             "var2": [20, 20, 20],
             "var4": [40, 50, 60],
         }
-        processor = CultivationHistoricalPreprocessor(
-            timestamps, "d", steps, inputs, self.prediction_config, model
-        )
+        processor = CultivationHistoricalPreprocessor(timestamps, "d", steps, inputs, self.prediction_config, model)
         with self.assertRaises(InvalidInputsException) as ex:
             processor.validate()
             self.assertEqual(
@@ -619,9 +510,7 @@ class TestCultivationUtils(unittest.TestCase):
         steps = [0, 1, 2]
 
         steps = None
-        processor = CultivationHistoricalPreprocessor(
-            timestamps, "d", steps, inputs, self.prediction_config, model
-        )
+        processor = CultivationHistoricalPreprocessor(timestamps, "d", steps, inputs, self.prediction_config, model)
 
         with self.assertRaises(InvalidStepsException) as ex:
             processor.validate()
@@ -631,9 +520,7 @@ class TestCultivationUtils(unittest.TestCase):
             )
 
         steps = [0, 1, 2, 3]
-        processor = CultivationHistoricalPreprocessor(
-            timestamps, "d", steps, inputs, self.prediction_config, model
-        )
+        processor = CultivationHistoricalPreprocessor(timestamps, "d", steps, inputs, self.prediction_config, model)
 
         with self.assertRaises(InvalidStepsException) as ex:
             processor.validate()
@@ -643,9 +530,7 @@ class TestCultivationUtils(unittest.TestCase):
             )
 
         steps = [1, 2, 3]
-        processor = CultivationHistoricalPreprocessor(
-            timestamps, "d", steps, inputs, self.prediction_config, model
-        )
+        processor = CultivationHistoricalPreprocessor(timestamps, "d", steps, inputs, self.prediction_config, model)
 
         with self.assertRaises(InvalidStepsException) as ex:
             processor.validate()
@@ -655,9 +540,7 @@ class TestCultivationUtils(unittest.TestCase):
             )
 
         steps = [0, 2, 1]
-        processor = CultivationHistoricalPreprocessor(
-            timestamps, "d", steps, inputs, self.prediction_config, model
-        )
+        processor = CultivationHistoricalPreprocessor(timestamps, "d", steps, inputs, self.prediction_config, model)
 
         with self.assertRaises(InvalidStepsException) as ex:
             processor.validate()
@@ -676,9 +559,7 @@ class TestCultivationUtils(unittest.TestCase):
         }
         timestamps = [0, 1, 2, 3]
 
-        processor = CultivationPropagationPreprocessor(
-            timestamps, "h", inputs, self.prediction_config, model
-        )
+        processor = CultivationPropagationPreprocessor(timestamps, "h", inputs, self.prediction_config, model)
 
         processor.validate()
         request = processor.format()
@@ -686,12 +567,8 @@ class TestCultivationUtils(unittest.TestCase):
         self.assertEqual(request[0]["instances"][0][0]["values"], [10])  # var1
         self.assertEqual(request[0]["instances"][0][0]["timestamps"], [0])
         self.assertEqual(request[0]["instances"][0][1]["values"], [20])  # var2
-        self.assertEqual(
-            request[0]["instances"][0][2]["values"], [0.2, 0.6, 0.6, 0.1]
-        )  # var3
-        self.assertEqual(
-            request[0]["instances"][0][2]["timestamps"], [0, 3600, 7200, 10800]
-        )
+        self.assertEqual(request[0]["instances"][0][2]["values"], [0.2, 0.6, 0.6, 0.1])  # var3
+        self.assertEqual(request[0]["instances"][0][2]["timestamps"], [0, 3600, 7200, 10800])
 
     def test_convert_to_request_historical(self):
         model = self.model
@@ -704,17 +581,13 @@ class TestCultivationUtils(unittest.TestCase):
         timestamps = [1, 2, 3]
         steps = [0, 1, 2]
 
-        processor = CultivationHistoricalPreprocessor(
-            timestamps, "d", steps, inputs, self.prediction_config, model
-        )
+        processor = CultivationHistoricalPreprocessor(timestamps, "d", steps, inputs, self.prediction_config, model)
 
         processor.validate()
         request = processor.format()
 
         self.assertEqual(request[0]["instances"][0][0]["values"], [10, 10, 10])
-        self.assertEqual(
-            request[0]["instances"][0][0]["timestamps"], [86400, 172800, 259200]
-        )
+        self.assertEqual(request[0]["instances"][0][0]["timestamps"], [86400, 172800, 259200])
         self.assertEqual(request[0]["instances"][0][0]["steps"], [0, 1, 2])
         self.assertEqual(request[0]["instances"][0][1]["values"], [20, 20, 20])
         self.assertEqual(request[0]["instances"][0][2]["values"], [1, 2, 3])
@@ -732,11 +605,7 @@ class TestResults(unittest.TestCase):
         class DummyRequests:
             def list(self, offset, limit, query_params):
                 # creates a dummy fetch function that returns 15 elements
-                return [
-                    DummyEntity(id=i, name=f"Name {i}")
-                    for i in range(offset, offset + limit)
-                    if i < 15
-                ], 15
+                return [DummyEntity(id=i, name=f"Name {i}") for i in range(offset, offset + limit) if i < 15], 15
 
         results = Result[DummyEntity](
             offset=0,
