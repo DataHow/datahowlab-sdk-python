@@ -1,12 +1,7 @@
-# pylint: disable=no-member
-# pylint: disable=too-few-public-methods
-# pylint: disable=missing-function-docstring
-# pylint: disable=missing-class-docstring
-
 """API Results Handling Module
 
-This module provides utility functions to handle and manage 
-results obtained from the API. 
+This module provides utility functions to handle and manage
+results obtained from the API.
 
 Classes:
     - CRUDClient: A utility class for handling CRUD requests for API entities
@@ -21,14 +16,11 @@ from requests import Response
 
 
 class Client(Protocol):
-    def post(self, path: str, json_data: Any) -> Response:
-        ...
+    def post(self, path: str, json_data: Any) -> Response: ...
 
-    def put(self, path: str, data: Any, content_type: str) -> Response:
-        ...
+    def put(self, path: str, data: Any, content_type: str) -> Response: ...
 
-    def get(self, path: str, query_params: Optional[dict[str, str]] = None) -> Response:
-        ...
+    def get(self, path: str, query_params: Optional[dict[str, str]] = None) -> Response: ...
 
 
 class DataBaseClient(Protocol):
@@ -41,8 +33,7 @@ T = TypeVar("T")
 
 
 class Constructor(Protocol[T]):
-    def __call__(self, **kwargs) -> T:
-        ...
+    def __call__(self, **kwargs) -> T: ...
 
 
 class CRUDClient(Generic[T]):
@@ -69,9 +60,7 @@ class CRUDClient(Generic[T]):
 
         return entity
 
-    def list(
-        self, offset: int, limit: int, query_params: Optional[dict[str, str]] = None
-    ) -> tuple[list[T], int]:
+    def list(self, offset: int, limit: int, query_params: Optional[dict[str, str]] = None) -> tuple[list[T], int]:
         query_params = query_params or {}
         query_params |= {
             "offset": str(offset),
@@ -81,11 +70,8 @@ class CRUDClient(Generic[T]):
         }
 
         response = self._client.get(self._base_url, query_params=query_params)
-        total = int(response.headers.get("x-total-count"))
-        entities = [
-            self._constructor(**entity, client=self._client)
-            for entity in response.json()
-        ]
+        total = int(response.headers.get("x-total-count", "0"))
+        entities = [self._constructor(**entity, client=self._client) for entity in response.json()]
 
         return entities, total
 

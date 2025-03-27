@@ -1,23 +1,18 @@
-"""This module contains utility functions for data validation and formatting in the SDK
-"""
-
-# pylint: disable=missing-class-docstring
-# pylint: disable=missing-function-docstring
-# pylint: disable=too-few-public-methods
 
 import math
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, Protocol, Union
+from pydantic import Json
 
 import numpy as np
 
 from dhl_sdk._spectra_utils import (
     SpectraData,
     SpectraModel,
-    _convert_to_request,
-    _validate_spectra_format,
+    convert_to_request,
+    validate_spectra_format,
 )
 from dhl_sdk._utils import (
     Metadata,
@@ -39,43 +34,35 @@ from dhl_sdk.exceptions import (
 
 class Group(Protocol):
     @property
-    def code(self) -> str:
-        ...
+    def code(self) -> str: ...
 
 
 class Variable(Protocol):
     @property
-    def group(self) -> Group:
-        ...
+    def group(self) -> Group: ...
 
     @property
-    def code(self) -> str:
-        ...
+    def code(self) -> str: ...
 
     @property
-    def id(self) -> str:
-        ...
+    def id(self) -> str: ...
 
-    def matches_key(self, key: str) -> bool:
-        ...
+    def matches_key(self, key: str) -> bool: ...
 
 
 class Dataset(Protocol):
     @property
-    def variables(self) -> list[Variable]:
-        ...
+    def variables(self) -> list[Variable]: ...
 
 
 class Model(Protocol):
     id: str
 
     @property
-    def dataset(self) -> Dataset:
-        ...
+    def dataset(self) -> Dataset: ...
 
     @property
-    def model_variables(self) -> list[Variable]:
-        ...
+    def model_variables(self) -> list[Variable]: ...
 
 
 # Input Preprocessors (Validation and Formatting)
@@ -87,7 +74,7 @@ class Preprocessor(ABC):
         """Validate the input data"""
 
     @abstractmethod
-    def format(self) -> list[dict]:
+    def format(self) -> list[dict[str, Json]]:
         """Format the input data to a list of JSON requests"""
 
 
@@ -139,7 +126,7 @@ class SpectraPreprocessor(Preprocessor):
         if n_spectra < 1:
             raise InvalidSpectraException("Empty spectra provided")
 
-        self.spectra = _validate_spectra_format(self.spectra)
+        self.spectra = validate_spectra_format(self.spectra)
 
         # Validate number of wavelengths in spectra
         for i, spectrum in enumerate(self.spectra):
@@ -147,40 +134,27 @@ class SpectraPreprocessor(Preprocessor):
                 raise InvalidSpectraException(
                     (
                         f"Invalid Spectra: The Number of Wavelengths does not"
-                        f"match training data for spectrum number: {i+1}. "
+                        f"match training data for spectrum number: {i + 1}. "
                         f"Expected: {self.model.spectra_size}, Got: {len(spectrum)}"
                     )
                 )
             if validate_list_elements(spectrum):
-                raise InvalidSpectraException(
-                    (
-                        f"Invalid Spectra: The Spectra contains not "
-                        f"valid values for spectrum number: {i+1}"
-                    )
-                )
+                raise InvalidSpectraException((f"Invalid Spectra: The Spectra contains not valid values for spectrum number: {i + 1}"))
 
         if self.inputs is None:
             if len(self.model.inputs) > 0:
-                raise InvalidInputsException(
-                    "The model requires inputs, but none were provided."
-                )
+                raise InvalidInputsException("The model requires inputs, but none were provided.")
             return True
 
         if len(self.model.inputs) == 0:
-            raise InvalidInputsException(
-                "The model does not require inputs, but some were provided."
-            )
+            raise InvalidInputsException("The model does not require inputs, but some were provided.")
 
         # validate inputs with spectra inputs (number of lines)
         for key, value in self.inputs.items():
             if len(value) != n_spectra:
-                raise InvalidInputsException(
-                    f"The Number of values does not match the number of spectra for input: {key}"
-                )
+                raise InvalidInputsException(f"The Number of values does not match the number of spectra for input: {key}")
             if validate_list_elements(value):
-                raise InvalidInputsException(
-                    f"Invalid Inputs: The Inputs contain non-valid values for input: {key}"
-                )
+                raise InvalidInputsException(f"Invalid Inputs: The Inputs contain non-valid values for input: {key}")
 
         return True
 
@@ -200,13 +174,11 @@ class SpectraPreprocessor(Preprocessor):
         """
 
         if self.inputs is None:
-            return _convert_to_request(self.spectra, model=self.model)
+            return convert_to_request(self.spectra, model=self.model)
 
         model_variables = self.model.dataset.variables
 
-        input_variables = [
-            variable for variable in model_variables if variable.id in self.model.inputs
-        ]
+        input_variables = [variable for variable in model_variables if variable.id in self.model.inputs]
 
         # validate inputs codes and format for ids
         formatted_inputs = {}
@@ -218,15 +190,10 @@ class SpectraPreprocessor(Preprocessor):
             else:
                 correct_inputs = [print(variable) for variable in input_variables]
                 raise InvalidInputsException(
-                    (
-                        f"No matching Input found for key: {key}. "
-                        f"Please select one of the following as inputs: {*correct_inputs,}"
-                    )
+                    (f"No matching Input found for key: {key}. Please select one of the following as inputs: {(*correct_inputs,)}")
                 )
 
-        return _convert_to_request(
-            self.spectra, model=self.model, inputs=formatted_inputs
-        )
+        return convert_to_request(self.spectra, model=self.model, inputs=formatted_inputs)
 
 
 @dataclass
@@ -273,9 +240,7 @@ class CultivationPropagationPreprocessor(Preprocessor):
             self.timestamps = self.timestamps.tolist()
 
         # Validate timestamps
-        self.timestamps = _validate_upstream_timestamps(
-            timestamps=self.timestamps, timestamps_unit=self.timestamps_unit
-        )
+        validated_timestamps = _validate_upstream_timestamps(timestamps=timestamp_list, timestamps_unit=self.timestamps_unit)
 
         # Validate inputs
         _validate_upstream_inputs(inputs=self.inputs)
@@ -397,9 +362,7 @@ class CultivationHistoricalPreprocessor(Preprocessor):
             self.timestamps = self.timestamps.tolist()
 
         # Validate timestamps
-        self.timestamps = _validate_upstream_timestamps(
-            timestamps=self.timestamps, timestamps_unit=self.timestamps_unit
-        )
+        validated_timestamps = _validate_upstream_timestamps(timestamps=timestamp_list, timestamps_unit=self.timestamps_unit)
 
         # Validate steps
         _validate_historical_steps(steps=self.steps, timestamps=self.timestamps)
@@ -435,9 +398,7 @@ class CultivationHistoricalPreprocessor(Preprocessor):
                 if variable.matches_key(key):
                     formatted_inputs[variable.id] = {}
                     formatted_inputs[variable.id]["values"] = value
-                    formatted_inputs[variable.id]["timestamps"] = self.timestamps[
-                        : len(value)
-                    ]
+                    formatted_inputs[variable.id]["timestamps"] = self.timestamps[: len(value)]
                     formatted_inputs[variable.id]["steps"] = self.steps[: len(value)]
                     break
 
@@ -457,9 +418,7 @@ class CultivationHistoricalPreprocessor(Preprocessor):
             by_alias=True,
             exclude_none=True,
             include={
-                "instances": {
-                    "__all__": {"__all__": {"timestamps", "values", "steps"}}
-                },
+                "instances": {"__all__": {"__all__": {"timestamps", "values", "steps"}}},
                 "metadata": True,
                 "stages": True,
             },
@@ -468,9 +427,7 @@ class CultivationHistoricalPreprocessor(Preprocessor):
         return [json_data]
 
 
-def _validate_upstream_timestamps(
-    timestamps: list[Union[int, float]], timestamps_unit: str
-) -> list[int]:
+def _validate_upstream_timestamps(timestamps: list[Union[int, float]], timestamps_unit: str) -> list[int]:
     """Validate the timestamps for upstream prediction.
 
     This function performs a series of validations on the provided timestamps to ensure they meet
@@ -504,17 +461,11 @@ def _validate_upstream_timestamps(
 
     # Validate if length of timestamps
     if len(timestamps) <= 1:
-        raise InvalidTimestampsException(
-            "Timestamps must be a list of at least 2 values"
-        )
+        raise InvalidTimestampsException("Timestamps must be a list of at least 2 values")
 
     # Validate if timestamps are valid numeric values
-    if not all(
-        isinstance(value, (int, float)) and math.isfinite(value) for value in timestamps
-    ):
-        raise InvalidTimestampsException(
-            "All values of timestamps must be valid numeric values"
-        )
+    if not all(isinstance(value, (int, float)) and math.isfinite(value) for value in timestamps):
+        raise InvalidTimestampsException("All values of timestamps must be valid numeric values")
 
     # Validate if timestamps are in ascending order and unique
     if any(a >= b for a, b in zip(timestamps, timestamps[1:])):
@@ -543,17 +494,13 @@ def _validate_upstream_timestamps(
 
     factor = unit_factors.get(timestamps_unit.lower())
     if factor is None:
-        raise InvalidTimestampsException(
-            f"Invalid timestamps unit '{timestamps_unit}' found."
-        )
+        raise InvalidTimestampsException(f"Invalid timestamps unit '{timestamps_unit}' found.")
 
     # Apply the factor and convert to int
     return [int(timestamp * factor) for timestamp in timestamps]
 
 
-def _validate_historical_steps(
-    steps: list[Optional[int]], timestamps: list[int]
-) -> None:
+def _validate_historical_steps(steps: list[Optional[int]], timestamps: list[int]) -> None:
     """Validate the steps for historical prediction.
 
     This function performs a series of validations on the provided timestamps to ensure they meet
@@ -610,24 +557,18 @@ def _validate_upstream_inputs(inputs: dict[str, list]) -> None:
     """
 
     if inputs is None:
-        raise InvalidInputsException(
-            "No Inputs provided. Please provide a dictionary of inputs"
-        )
+        raise InvalidInputsException("No Inputs provided. Please provide a dictionary of inputs")
 
     # Validate types
     if not isinstance(inputs, dict):
-        raise InvalidInputsException(
-            "Inputs must be a dictionary of lists, with the variable code as key"
-        )
+        raise InvalidInputsException("Inputs must be a dictionary of lists, with the variable code as key")
 
     # Validate if inputs are lists
     if not all(isinstance(value, list) for value in inputs.values()):
         raise InvalidInputsException("All input values must be lists")
 
 
-def _validate_propagation_with_variables(
-    timestamps: list[int], inputs: dict[str, list], model: Model
-) -> None:
+def _validate_propagation_with_variables(timestamps: list[int], inputs: dict[str, list], model: Model) -> None:
     """
     Validate the inputs based on the provided timestamps and model.
 
@@ -654,41 +595,23 @@ def _validate_propagation_with_variables(
                 # Validate if inputs and timestamps are the same length
                 if len(inputs[variable.code]) != len(timestamps):
                     raise InvalidInputsException(
-                        (
-                            f"The recipe requires {variable.code} to be complete,"
-                            f"so it must have the same length as timestamps"
-                        )
+                        (f"The recipe requires {variable.code} to be complete,so it must have the same length as timestamps")
                     )
 
             else:
                 # validate if non time dependent inputs have length of 1 (only initial values)
                 if len(inputs[variable.code]) != 1:
-                    raise InvalidInputsException(
-                        (
-                            f"Input {variable.code} only requires initial "
-                            f"values, so it must have a length of 1"
-                        )
-                    )
+                    raise InvalidInputsException((f"Input {variable.code} only requires initial values, so it must have a length of 1"))
 
             # Validate if numeric inputs are valid numeric values
             if groupcode_is_numeric(variable.group.code):
-                if not all(
-                    isinstance(value, (int, float)) and math.isfinite(value)
-                    for value in inputs[variable.code]
-                ):
-                    raise InvalidInputsException(
-                        f"All values of input {variable.code} must be valid numeric values"
-                    )
+                if not all(isinstance(value, (int, float)) and math.isfinite(value) for value in inputs[variable.code]):
+                    raise InvalidInputsException(f"All values of input {variable.code} must be valid numeric values")
 
         else:
             # validate if missing value is an Y Variable
             if not groupcode_is_output(variable.group.code):
-                raise InvalidInputsException(
-                    (
-                        f"Input {variable.code} is a {variable.group.code} "
-                        f"Variable, so it must be provided"
-                    )
-                )
+                raise InvalidInputsException((f"Input {variable.code} is a {variable.group.code} Variable, so it must be provided"))
 
 
 def _validate_historical_with_variables(
@@ -719,22 +642,13 @@ def _validate_historical_with_variables(
         if variable.code in inputs:
             if groupcode_is_numeric(variable.group.code):
                 # Validate if inputs are valid numeric values
-                if not all(
-                    isinstance(value, (int, float)) for value in inputs[variable.code]
-                ):
-                    raise InvalidInputsException(
-                        f"All values of input {variable.code} must be valid numeric values"
-                    )
+                if not all(isinstance(value, (int, float)) for value in inputs[variable.code]):
+                    raise InvalidInputsException(f"All values of input {variable.code} must be valid numeric values")
 
         else:
             # validate if missing value is an Y Variable
             if not groupcode_is_output(variable.group.code):
-                raise InvalidInputsException(
-                    (
-                        f"Input {variable.code} is a {variable.group.code} "
-                        f"Variable, so it must be provided"
-                    )
-                )
+                raise InvalidInputsException((f"Input {variable.code} is a {variable.group.code} Variable, so it must be provided"))
 
 
 # pylint: disable=unused-argument

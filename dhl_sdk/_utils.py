@@ -1,5 +1,4 @@
-"""This module contains generic utility functions used in the SDK
-"""
+"""This module contains generic utility functions used in the SDK"""
 
 import urllib.parse as urlparse
 from datetime import datetime
@@ -79,9 +78,7 @@ class PredictionRequestConfig(BaseModel):
     low_values_percentile: float = Field(alias="lowValuesPercentile", default=10)
 
     @staticmethod
-    def new(
-        model_confidence: float, starting_index: int = 0
-    ) -> "PredictionRequestConfig":
+    def new(model_confidence: float, starting_index: int = 0) -> "PredictionRequestConfig":
         """Create a new Prediction Configuration object"""
         if not 1.0 < model_confidence < 99.0:
             raise InvalidConfidenceException()
@@ -99,9 +96,7 @@ class PredictionRequestConfig(BaseModel):
 class SpectraPredictionConfig(BaseModel):
     """Pydantic class representing Spectra Prediction Config"""
 
-    prediction_mode: Literal["classic", "onlySpectra"] = Field(
-        default="classic", alias="predictionMode"
-    )
+    prediction_mode: Literal["classic", "onlySpectra"] = Field(default="classic", alias="predictionMode")
 
 
 class OnlyId(BaseModel):
@@ -150,22 +145,13 @@ class PredictionResponse(BaseModel):
 
 def urljoin(*args) -> str:
     """join url elements together into one url"""
-    elements = [
-        f"{arg}/" if arg[-1] != "/" and i != len(args) - 1 else arg
-        for i, arg in enumerate(args)
-    ]
+    elements = [f"{arg}/" if arg[-1] != "/" and i != len(args) - 1 else arg for i, arg in enumerate(args)]
     return reduce(urlparse.urljoin, elements)
 
 
 def validate_list_elements(arr: list) -> bool:
     """Validates if an array contains non float values"""
-    return any(
-        not isinstance(item, (float, int))
-        or item is None
-        or np.isnan(item)
-        or np.isinf(item)
-        for item in arr
-    )
+    return any(not isinstance(item, (float, int)) or item is None or np.isnan(item) or np.isinf(item) for item in arr)
 
 
 def get_id_list(json_list: list[dict]) -> list[str]:

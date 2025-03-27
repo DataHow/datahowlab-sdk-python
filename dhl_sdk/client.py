@@ -10,7 +10,7 @@ Classes:
     - DataHowLabClient: main client to interact with the DHL API
 """
 
-from typing import Any, Dict, Literal, Optional, Type, TypeVar, Union
+from typing import Any, Dict, Literal, Optional, Type, TypeVar, cast
 from urllib.parse import urlencode
 
 import requests
@@ -40,9 +40,7 @@ class Client:
     A client for interacting with the DataHowLab API.
     """
 
-    def __init__(
-        self, auth_key: APIKeyAuthentication, base_url: str, verify: bool = True
-    ) -> None:
+    def __init__(self, auth_key: APIKeyAuthentication, base_url: str, verify: bool = True) -> None:
         """
         Parameters
         ----------
@@ -58,14 +56,10 @@ class Client:
         """
         self.auth_key = auth_key
         self.base_url = base_url
-        self.session = Client._get_retry_requester(
-            total_retries=5, backoff_factor=1, verify=verify
-        )
+        self.session = Client._get_retry_requester(total_retries=5, backoff_factor=1, verify=verify)
 
     @staticmethod
-    def _get_retry_requester(
-        total_retries: int = 5, backoff_factor: int = 1, verify: int = True
-    ):
+    def _get_retry_requester(total_retries: int = 5, backoff_factor: int = 1, verify: bool = True):
         """Get the http session with retry strategy"""
         status_forcelist = [429, 502, 503, 504]
         allowed_methods = ["DELETE", "GET", "HEAD", "OPTIONS", "PUT", "TRACE"]
@@ -153,7 +147,7 @@ class Client:
         self,
         path: str,
         data: Any,
-        content_type: Literal["application/json", "text/csv"] = "application/json",
+        content_type: str = "application/json",
     ) -> Response:
         """
         Sends a PUT request to the specified
@@ -190,9 +184,7 @@ class Client:
             response = self.session.put(path, headers=req_headers, data=data)
             response.raise_for_status()
         else:
-            raise NotImplementedError(
-                f"Put request with given content type '{content_type}' not implemented yet."
-            )
+            raise NotImplementedError(f"Put request with given content type '{content_type}' not implemented yet.")
 
         return response
 
@@ -240,7 +232,7 @@ class Client:
 
         projects = project_type.requests(self)
 
-        result = Result[project_type](
+        result = Result(
             offset=offset,
             limit=10,
             query_params=filter_params,
@@ -314,10 +306,7 @@ class DataHowLabClient:
         """
 
         if project_type not in PROCESS_UNIT_MAP:
-            raise ValueError(
-                f"Type must be one of {list(PROCESS_UNIT_MAP.keys())}, "
-                "but got '{project_type}'"
-            )
+            raise ValueError(f"Type must be one of {list(PROCESS_UNIT_MAP.keys())}, but got '{{project_type}}'")
 
         if process_format not in PROCESS_FORMAT_MAP:
             raise ValueError(
@@ -408,9 +397,7 @@ class DataHowLabClient:
         self,
         code: Optional[str] = None,
         group: Optional[str] = None,
-        variable_type: Optional[
-            Literal["categorical", "flow", "logical", "numeric"]
-        ] = None,
+        variable_type: Optional[Literal["categorical", "flow", "logical", "numeric"]] = None,
     ) -> Result[Variable]:
         """Retrieve the available variables for the user
 
@@ -432,22 +419,14 @@ class DataHowLabClient:
             "numeric",
         ]:
             raise ValueError(
-                (
-                    f"Variable Type must be one of: 'categorical', 'flow',"
-                    f" 'logical', 'numeric'. instead, it got '{variable_type}'"
-                )
+                (f"Variable Type must be one of: 'categorical', 'flow', 'logical', 'numeric'. instead, it got '{variable_type}'")
             )
 
         if group:
-            variable_group_codes = VariableGroupCodes(
-                self._client
-            ).get_variable_group_codes()
+            variable_group_codes = VariableGroupCodes(self._client).get_variable_group_codes()
 
             if group not in variable_group_codes:
-                raise ValueError(
-                    f"Variable Group must be one of: {list(variable_group_codes.keys())}."
-                    f" instead, it got '{group}'"
-                )
+                raise ValueError(f"Variable Group must be one of: {list(variable_group_codes.keys())}. instead, it got '{group}'")
 
             group_id = variable_group_codes[group][0]
         else:
@@ -473,9 +452,7 @@ class DataHowLabClient:
 
         return result
 
-    def get_recipes(
-        self, name: Optional[str] = None, product: Optional[Product] = None
-    ) -> Result[Recipe]:
+    def get_recipes(self, name: Optional[str] = None, product: Optional[Product] = None) -> Result[Recipe]:
         """Retrieve the available recipes for the user
 
         Parameters

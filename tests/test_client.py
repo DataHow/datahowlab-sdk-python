@@ -1,10 +1,8 @@
-# pylint: disable=missing-docstring
 import unittest
 from unittest.mock import patch, Mock
 
 from dhl_sdk.authentication import APIKeyAuthentication
 from dhl_sdk.client import Client, DataHowLabClient
-from dhl_sdk.crud import CRUDClient
 from dhl_sdk.entities import CultivationProject
 
 
@@ -184,30 +182,20 @@ class TestClient(unittest.TestCase):
         group = "X Variables"
 
         mock_variable_group_codes = Mock()
-        mock_variable_group_codes.get_variable_group_codes.return_value = {
-            "X Variables": ("959606c1-44bc-4657-82ff-70c247be14aa", "X")
-        }
+        mock_variable_group_codes.get_variable_group_codes.return_value = {"X Variables": ("959606c1-44bc-4657-82ff-70c247be14aa", "X")}
 
-        with patch(
-            "dhl_sdk.client.VariableGroupCodes", return_value=mock_variable_group_codes
-        ):
+        with patch("dhl_sdk.client.VariableGroupCodes", return_value=mock_variable_group_codes):
             with self.assertRaises(ValueError):
                 # it should raise an error since variable_type is not valid
-                result = client.get_variables(
-                    code=code, variable_type="test", group=group
-                )
+                result = client.get_variables(code=code, variable_type="test", group=group)
 
             with self.assertRaises(ValueError):
                 # it should raise an error since group is not valid
-                result = client.get_variables(
-                    code=code, variable_type=variable_type, group="test"
-                )
+                result = client.get_variables(code=code, variable_type=variable_type, group="test")
 
             with self.assertRaises(StopIteration):
                 # it should raise an error since there is no data
-                result = client.get_variables(
-                    code=code, variable_type=variable_type, group=group
-                )
+                result = client.get_variables(code=code, variable_type=variable_type, group=group)
                 _ = next(result)
 
             mock_get.assert_called_once_with(

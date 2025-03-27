@@ -1,4 +1,3 @@
-# pylint: disable=missing-docstring
 import unittest
 from unittest.mock import Mock, call, patch
 
@@ -110,9 +109,7 @@ class TestProductEntity(unittest.TestCase):
             with self.assertRaises(ImportValidationException) as ex:
                 product.validate_import(client)
 
-        self.assertTrue(
-            ex.exception.message.startswith("This product code code is already taken")
-        )
+        self.assertTrue(ex.exception.message.startswith("This product code code is already taken"))
 
 
 class TestProductRequests(unittest.TestCase):
@@ -313,9 +310,7 @@ class TestVariableEntity(unittest.TestCase):
             name="Variable 1",
             description="description",
             variable_group="Z Variables",
-            variable_type=VariableCategorical(
-                default="a", strict=True, values=["a", "b", "c"]
-            ),
+            variable_type=VariableCategorical(default="a", strict=True, values=["a", "b", "c"]),
             measurement_unit="n",
         )
 
@@ -379,11 +374,7 @@ class TestVariableEntity(unittest.TestCase):
                 type="conti",
                 stepSize=1000,
                 volumeId="vol-id",
-                references=[
-                    FlowVariableReference(
-                        measurementId="meas-id-111", concentrationId="conc-id-222"
-                    )
-                ],
+                references=[FlowVariableReference(measurementId="meas-id-111", concentrationId="conc-id-222")],
             ),
             measurement_unit="n",
         )
@@ -561,7 +552,7 @@ class TestFileEntity(unittest.TestCase):
             validator=ExperimentFileValidator(),
         )
 
-        with self.assertRaises(ImportValidationException) as ex:
+        with self.assertRaises(ImportValidationException):
             file.validate_import(variables)
 
         data = {
@@ -570,7 +561,7 @@ class TestFileEntity(unittest.TestCase):
         }
         file._data = data
 
-        with self.assertRaises(ImportValidationException) as ex:
+        with self.assertRaises(ImportValidationException):
             file.validate_import(variables)
 
         data = {
@@ -578,7 +569,7 @@ class TestFileEntity(unittest.TestCase):
         }
 
         file._data = data
-        with self.assertRaises(ImportValidationException) as ex:
+        with self.assertRaises(ImportValidationException):
             file.validate_import(variables)
 
 

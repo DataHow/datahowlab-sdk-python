@@ -4,14 +4,14 @@ Exceptions Module
 This module defines custom exception classes for use throughout the project.
 
 Exceptions:
-    - InvalidSpectraException: Exception raised when spectra used for prediction 
+    - InvalidSpectraException: Exception raised when spectra used for prediction
       are not valid
     - InvalidInputsException: Exception raised when Inputs used for prediction
       are not valid
     - ModelPredictionException: Exception raised when Model Prediction fails
-    - InvalidTimestampsException: Exception raised when timestamps used for 
+    - InvalidTimestampsException: Exception raised when timestamps used for
       prediction are not valid
-    - InvalidStepsException: Exception raised when steps used for historical 
+    - InvalidStepsException: Exception raised when steps used for historical
       model prediction are not valid
     - PredictionRequestException: Exception raised when prediction request fails
     - ImportValidationException: Exception raised when import validation fails
@@ -46,9 +46,7 @@ class ModelPredictionException(Exception):
 class InvalidTimestampsException(Exception):
     """Exception raised when timestamps used for prediction are not valid"""
 
-    def __init__(
-        self, message: str = "The timestamps used for prediction are not valid."
-    ):
+    def __init__(self, message: str = "The timestamps used for prediction are not valid."):
         self.message = message
         super().__init__(self.message)
 
@@ -64,9 +62,7 @@ class InvalidVariantException(Exception):
 class InvalidStepsException(Exception):
     """Exception raised when steps used for historical model prediction are not valid"""
 
-    def __init__(
-        self, message: str = "The steps used for the prediction are not valid."
-    ):
+    def __init__(self, message: str = "The steps used for the prediction are not valid."):
         self.message = message
         super().__init__(self.message)
 
@@ -82,9 +78,7 @@ class InvalidStartingIndexException(Exception):
 class InvalidConfidenceException(Exception):
     """Exception raised when Model Prediction fails"""
 
-    def __init__(
-        self, message: str = "Model Confidence must be a value between 1 and 99"
-    ):
+    def __init__(self, message: str = "Model Confidence must be a value between 1 and 99"):
         self.message = message
         super().__init__(self.message)
 

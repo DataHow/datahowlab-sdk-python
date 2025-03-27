@@ -9,7 +9,7 @@ Classes:
     - Recipe: Represents a structure for recipes
     - Variable: Represents a structure for variables present in experiments and recipes
     - Product: Represents a structure for products present in experiments and recipes
-    """
+"""
 
 # pylint: disable=no-member, protected-access, too-many-arguments, too-many-lines
 
@@ -88,9 +88,7 @@ class VariableNumeric(BaseModel):
     default: Optional[float] = Field(default=None, alias="default")
     minimum: Optional[float] = Field(default=None, alias="min")
     maximum: Optional[float] = Field(default=None, alias="max")
-    interpolation_method: Optional[Literal["linear", "discrete"]] = Field(
-        default=None, alias="interpolation"
-    )
+    interpolation_method: Optional[Literal["linear", "discrete"]] = Field(default=None, alias="interpolation")
 
     @property
     def variant_string(self) -> str:
@@ -157,18 +155,14 @@ class VariableFlow(BaseModel):
         references: References for the flow variable
     """
 
-    flow_type: Literal[
-        "bolus", "conti", "mbolus", "mconti", "sampling", "bleed", "perfusion"
-    ] = Field(default="bolus", alias="type")
+    flow_type: Literal["bolus", "conti", "mbolus", "mconti", "sampling", "bleed", "perfusion"] = Field(default="bolus", alias="type")
     step_size: Optional[int] = Field(default=None, alias="stepSize")
     volume_id: Optional[str] = Field(default=None, alias="volumeId")
     references: list[FlowVariableReference] = Field(alias="references")
 
     @staticmethod
     def new(
-        flow_type: Literal[
-            "bolus", "conti", "mbolus", "mconti", "sampling", "bleed", "perfusion"
-        ],
+        flow_type: Literal["bolus", "conti", "mbolus", "mconti", "sampling", "bleed", "perfusion"],
         variable_references: list[FlowVariableReference],
         step_size: Optional[int] = None,
         volume_variable_id: Optional[str] = None,
@@ -195,9 +189,7 @@ class VariableFlow(BaseModel):
 
         if flow_type in ["conti", "mconti", "bleed", "perfusion"]:
             if not step_size:
-                raise NewEntityException(
-                    "Step size must be provided for 'conti', 'mconti', 'bleed', 'perfusion' types"
-                )
+                raise NewEntityException("Step size must be provided for 'conti', 'mconti', 'bleed', 'perfusion' types")
 
         return VariableFlow(
             type=flow_type,
@@ -264,12 +256,7 @@ class Group(BaseModel):
     def validate_group(self, group_codes: dict[str, tuple[str, str]]) -> None:
         """Validate the group"""
         if self.name not in group_codes:
-            raise ImportValidationException(
-                (
-                    f"Variable Group must be one of: {list(group_codes.keys())}."
-                    " instead, it got '{self.name}'"
-                )
-            )
+            raise ImportValidationException((f"Variable Group must be one of: {list(group_codes.keys())}. instead, it got '{{self.name}}'"))
 
         self.id, self.code = group_codes[self.name]
 
@@ -328,24 +315,15 @@ class Variable(BaseModel, DataBaseEntity):
         else:
             try:
                 if data["variant_details"].variant_string != variant.value:
-                    raise ValueError(
-                        (
-                            f"Variant details not valid for {variant} variant."
-                            f"Found: {data['variant_details'].variant_string}"
-                        )
-                    )
+                    raise ValueError((f"Variant details not valid for {variant} variant.Found: {data['variant_details'].variant_string}"))
             except AttributeError as asc:
-                raise ValueError(
-                    f"Variant details not valid for {variant} variant"
-                ) from asc
+                raise ValueError(f"Variant details not valid for {variant} variant") from asc
 
         if variant == Variant.SPECTRUM:
             try:
                 size = data["spectrum"]["xAxis"]["dimension"]
             except KeyError as err:
-                raise KeyError(
-                    "The spectrum variable does not have a valid structure"
-                ) from err
+                raise KeyError("The spectrum variable does not have a valid structure") from err
 
             data["size"] = size
 
@@ -370,9 +348,7 @@ class Variable(BaseModel, DataBaseEntity):
         if self.group:
             self.group.validate_group(variable_group_codes)
         else:
-            raise ImportValidationException(
-                "Variable group is not present, please provide a valid group"
-            )
+            raise ImportValidationException("Variable group is not present, please provide a valid group")
 
         # validate entity
         return self._validator.validate(entity=self, client=client)
@@ -394,9 +370,7 @@ class Variable(BaseModel, DataBaseEntity):
         model_dict["variant"] = self.variant.value
 
         if self.variant_details:
-            model_dict[self.variant.value] = self.variant_details.model_dump(
-                by_alias=True, exclude_none=True
-            )
+            model_dict[self.variant.value] = self.variant_details.model_dump(by_alias=True, exclude_none=True)
         else:
             model_dict[self.variant.value] = {}
 
@@ -495,7 +469,6 @@ class Variable(BaseModel, DataBaseEntity):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["Variable"]:
-        # pylint: disable=missing-function-docstring
         return CRUDClient["Variable"](client, VARIABLES_URL, Variable)
 
 
@@ -574,7 +547,6 @@ class Product(BaseModel, DataBaseEntity):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["Product"]:
-        # pylint: disable=missing-function-docstring
         return CRUDClient["Product"](client, PRODUCTS_URL, Product)
 
 
@@ -595,9 +567,7 @@ class File(BaseModel):
         self._data = data["data"]
         self._validator = data["validator"]
 
-    def validate_import(
-        self, variables: list[Variable], variant_details: Optional[dict] = None
-    ) -> bool:
+    def validate_import(self, variables: list[Variable], variant_details: Optional[dict] = None) -> bool:
         """Validate if the file can be imported"""
         if self._validator.validate(
             variables=variables,
@@ -605,9 +575,7 @@ class File(BaseModel):
             variant=self.variant,
             variant_details=variant_details,
         ):
-            self._data = self._validator.format_data(
-                variables=variables, data=self._data
-            )
+            self._data = self._validator.format_data(variables=variables, data=self._data)
             return True
 
         return False
@@ -648,12 +616,10 @@ class File(BaseModel):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["File"]:
-        # pylint: disable=missing-function-docstring
         return CRUDClient["File"](client, FILES_URL, File)
 
     @staticmethod
     def download(client: Client, file_id: str) -> Response:
-        # pylint: disable=missing-function-docstring
         return client.get(f"{FILES_URL}/{file_id}/data")
 
 
@@ -778,7 +744,6 @@ class Recipe(BaseModel, DataBaseEntity):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["Recipe"]:
-        # pylint: disable=missing-function-docstring
         return CRUDClient["Recipe"](client, RECIPES_URL, Recipe)
 
 
@@ -1003,9 +968,7 @@ class Experiment(BaseModel, DataBaseEntity):
             raise NewEntityException("Experiment name cannot be empty")
 
         if variant == "run" and (not start_time or not end_time):
-            raise NewEntityException(
-                "Start time and end time must be provided for 'run' variant"
-            )
+            raise NewEntityException("Start time and end time must be provided for 'run' variant")
 
         if process_format not in PROCESS_FORMAT_MAP:
             raise ValueError(
@@ -1029,9 +992,7 @@ class Experiment(BaseModel, DataBaseEntity):
             validator=file_validator,
         )
 
-        variant_details = (
-            {"startTime": start_time, "endTime": end_time} if variant == "run" else {}
-        )
+        variant_details = {"startTime": start_time, "endTime": end_time} if variant == "run" else {}
 
         # Create a new Experiment
         return Experiment(
@@ -1048,5 +1009,4 @@ class Experiment(BaseModel, DataBaseEntity):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["Experiment"]:
-        # pylint: disable=missing-function-docstring
         return CRUDClient["Experiment"](client, EXPERIMENTS_URL, Experiment)

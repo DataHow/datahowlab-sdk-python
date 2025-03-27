@@ -1,4 +1,4 @@
-""" New Entity Validators"""
+"""New Entity Validators"""
 
 # pylint: disable=missing-function-docstring, arguments-differ
 # pylint: disable=missing-class-docstring, protected-access
@@ -90,7 +90,6 @@ class Experiment(Protocol):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["Experiment"]:
-        # pylint: disable=missing-function-docstring
         ...
 
 
@@ -104,7 +103,6 @@ class Recipe(Protocol):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["Recipe"]:
-        # pylint: disable=missing-function-docstring
         ...
 
 
@@ -120,9 +118,7 @@ class VariableValidator(AbstractValidator):
         # first validate if variable is alredy in the DB
         if self.is_imported(entity, client):
             warnings.simplefilter("always")
-            warnings.warn(
-                f"Variable {entity.code} is already present in the DB. Skipping import."
-            )
+            warnings.warn(f"Variable {entity.code} is already present in the DB. Skipping import.")
             return False
 
         validation_errors = []
@@ -157,16 +153,11 @@ class VariableValidator(AbstractValidator):
         if entity.variant == "flow":
             references = entity.variant_details.references
             if references is None:
-                validation_errors.append(
-                    "Flow variables must have a list of references"
-                )
+                validation_errors.append("Flow variables must have a list of references")
 
             for reference in references:
                 if not reference.measurement_id:
-                    validation_errors.append(
-                        "Variable Flow references must have"
-                        " a reference to a X variable (measurement_id)"
-                    )
+                    validation_errors.append("Variable Flow references must have a reference to a X variable (measurement_id)")
                 else:
                     measurement_id = reference.measurement_id
                     response = client.get(f"{VARIABLES_URL}/{measurement_id}")
@@ -179,10 +170,7 @@ class VariableValidator(AbstractValidator):
                     else:
                         measurement = response.json()
                         if measurement["group"]["code"] != "X":
-                            validation_errors.append(
-                                f"Variable with id {measurement_id} must be a "
-                                "X variable to be valid as a reference"
-                            )
+                            validation_errors.append(f"Variable with id {measurement_id} must be a X variable to be valid as a reference")
 
                 if reference.concentration_id:
                     concentration_id = reference.concentration_id
@@ -197,8 +185,7 @@ class VariableValidator(AbstractValidator):
                         concentration = response.json()
                         if concentration["group"]["code"] != "FeedConc":
                             validation_errors.append(
-                                f"Variable with id {concentration_id} must be a "
-                                "Feed Concentration variable to be valid as a reference"
+                                f"Variable with id {concentration_id} must be a Feed Concentration variable to be valid as a reference"
                             )
 
                 if reference.fraction_id:
@@ -254,9 +241,7 @@ class ProductValidator(AbstractValidator):
 
         if self.is_imported(entity, client):
             warnings.simplefilter("always")
-            warnings.warn(
-                f"Product {entity.code} is already present in the DB. Skipping import."
-            )
+            warnings.warn(f"Product {entity.code} is already present in the DB. Skipping import.")
             return False
 
         # Check if process format id is valid
@@ -276,10 +261,8 @@ class ProductValidator(AbstractValidator):
         }
 
         response = client.get(PRODUCTS_URL, query_params=query_params)
-        if int(response.headers.get("x-total-count")) > 0:
-            validation_errors.append(
-                f"This product code {entity.code} is already taken"
-            )
+        if int(response.headers.get("x-total-count", "0")) > 0:
+            validation_errors.append(f"This product code {entity.code} is already taken")
 
         # Validate if variable name already exists
         query_params = {
@@ -288,10 +271,8 @@ class ProductValidator(AbstractValidator):
         }
 
         response = client.get(PRODUCTS_URL, query_params=query_params)
-        if int(response.headers.get("x-total-count")) > 0:
-            validation_errors.append(
-                f"This product name {entity.name} is already taken"
-            )
+        if int(response.headers.get("x-total-count", "0")) > 0:
+            validation_errors.append(f"This product name {entity.name} is already taken")
 
         if validation_errors:
             raise ImportValidationException("\n".join(validation_errors))
@@ -355,20 +336,13 @@ class RecipeFileValidator(AbstractFileValidator):
         for variable in variables:
             if variable.group.code == "X" and variable.code in data:
                 if len(data[variable.code]["timestamps"]) > 1:
-                    warnings.warn(
-                        f"Variable {variable.code} has more than 1 timestamp."
-                        " Only the first value will be stored"
-                    )
+                    warnings.warn(f"Variable {variable.code} has more than 1 timestamp. Only the first value will be stored")
 
-                    data[variable.code]["timestamps"] = [
-                        data[variable.code]["timestamps"][0]
-                    ]
+                    data[variable.code]["timestamps"] = [data[variable.code]["timestamps"][0]]
                     data[variable.code]["values"] = [data[variable.code]["values"][0]]
 
             if variable.variant == "categorical":
-                data[variable.code]["values"] = [
-                    str(value) for value in data[variable.code]["values"]
-                ]
+                data[variable.code]["values"] = [str(value) for value in data[variable.code]["values"]]
 
         return data
 
@@ -377,24 +351,22 @@ class RecipeFileValidator(AbstractFileValidator):
         validation_errors = []
 
         # check if there are X variables
-        if not any(var.group.code == "X" for var in variables):
-            raise ImportValidationException(
-                (
-                    "No variables 'X' found. 'X' variables"
-                    " are mandatory for the recipe."
-                )
-            )
+        if not any(var.group is not None and var.group.code == "X" for var in variables):
+            raise ImportValidationException(("No variables 'X' found. 'X' variables are mandatory for the recipe."))
 
         timedependent_variable_size = None
 
         for variable in variables:
+            if variable.group is None or variable.group.code is None:
+                validation_errors.append(f"Variable {variable.code}'s group is missing the code field")
+                continue
+            else:
+                group_code = variable.group.code
+
             if variable.code in data:
-                # check if there are output varlues
-                if groupcode_is_output(variable.group.code):
-                    validation_errors.append(
-                        f"Variable {variable.code} is an Output,"
-                        " so it's not allowed in the recipe"
-                    )
+                # check if there are output values
+                if groupcode_is_output(group_code):
+                    validation_errors.append(f"Variable {variable.code} is an Output, so it's not allowed in the recipe")
                     continue
 
                 # check if , for feedConc variables, the corresponding feed
@@ -403,77 +375,48 @@ class RecipeFileValidator(AbstractFileValidator):
                     var_code = variable.code
                     feedconc_codes = var_code.split("_")
                     if len(feedconc_codes) != 2:
-                        validation_errors.append(
-                            f"Variable {variable.code} must have the format 'Feed_XVar'"
-                        )
+                        validation_errors.append(f"Variable {variable.code} must have the format 'Feed_XVar'")
                         continue
 
                     if feedconc_codes[0] not in data.keys():
-                        validation_errors.append(
-                            f"Variable {variable.code} does not have a corresponding Feed Variable"
-                        )
+                        validation_errors.append(f"Variable {variable.code} does not have a corresponding Feed Variable")
                         continue
 
                     if feedconc_codes[1] not in data.keys():
-                        validation_errors.append(
-                            f"Variable {variable.code} does not have a corresponding X Variable"
-                        )
+                        validation_errors.append(f"Variable {variable.code} does not have a corresponding X Variable")
                         continue
 
                 variable_data = data[variable.code]
                 if not isinstance(variable_data, dict):
                     validation_errors.append(
-                        (
-                            f"Variable {variable.code} data must be a dictionary with"
-                            "the mandatory fields 'timestamps' and 'values'"
-                        )
+                        (f"Variable {variable.code} data must be a dictionary withthe mandatory fields 'timestamps' and 'values'")
                     )
                     continue
 
                 if "timestamps" not in variable_data or "values" not in variable_data:
-                    validation_errors.append(
-                        f"Variable {variable.code} data must contain 'timestamps' and 'values' key"
-                    )
+                    validation_errors.append(f"Variable {variable.code} data must contain 'timestamps' and 'values' key")
                     continue
 
                 timestamps = variable_data["timestamps"]
                 values = variable_data["values"]
 
                 if not isinstance(timestamps, list) or not isinstance(values, list):
-                    validation_errors.append(
-                        (
-                            f"Variable {variable.code} data must "
-                            " contain 'timestamps' and 'values' as lists"
-                        )
-                    )
+                    validation_errors.append((f"Variable {variable.code} data must  contain 'timestamps' and 'values' as lists"))
                     continue
 
                 if len(values) != len(timestamps) or len(timestamps) == 0:
                     validation_errors.append(
-                        (
-                            f"Variable {variable.code} data can't "
-                            " be empty and must have equal length "
-                            "of timestamps and values"
-                        )
+                        (f"Variable {variable.code} data can't  be empty and must have equal length of timestamps and values")
                     )
                     continue
 
                 if None in values:
-                    validation_errors.append(
-                        (
-                            f"Variable {variable.code} contains None values, that are not allowed"
-                        )
-                    )
+                    validation_errors.append((f"Variable {variable.code} contains None values, that are not allowed"))
                     continue
 
                 if groupcode_is_timedependent(variable.group.code):
                     if len(timestamps) < 2:
-                        validation_errors.append(
-                            (
-                                f"Variable {variable.code} must have the"
-                                " more than 1 timestamp"
-                            )
-                        )
+                        validation_errors.append((f"Variable {variable.code} must have the more than 1 timestamp"))
                         continue
 
                     if timedependent_variable_size is None:
@@ -491,42 +434,25 @@ class RecipeFileValidator(AbstractFileValidator):
 
                     if self.duration:
                         if (timestamps[-1] - timestamps[0]) != self.duration:
-                            validation_errors.append(
-                                (
-                                    f"Variable {variable.code} timestamps must"
-                                    " have the duration of the recipe"
-                                )
-                            )
+                            validation_errors.append((f"Variable {variable.code} timestamps must have the duration of the recipe"))
                             continue
 
                 else:
                     # validate if non time dependent inputs have length of 1 (only initial values)
-                    if len(values) != 1 and variable.group.code != "X":
-                        validation_errors.append(
-                            (
-                                f"Input {variable.code} only requires initial "
-                                f"values, so it must have a length of 1"
-                            )
-                        )
+                    if len(values) != 1 and group_code != "X":
+                        validation_errors.append((f"Input {variable.code} only requires initial values, so it must have a length of 1"))
                         continue
 
                 if variant_is_numeric(variable.variant):
-                    if not all(
-                        isinstance(value, (int, float)) and math.isfinite(value)
-                        for value in values
-                    ):
-                        validation_errors.append(
-                            (f"Variable {variable.code} values must be numeric")
-                        )
+                    if not all(isinstance(value, (int, float)) and math.isfinite(value) for value in values):
+                        validation_errors.append((f"Variable {variable.code} values must be numeric"))
                         continue
 
             else:
                 if groupcode_is_output(variable.group.code):
                     continue
 
-                validation_errors.append(
-                    f"Variable {variable.code} is missing from the data dictionary"
-                )
+                validation_errors.append(f"Variable {variable.code} is missing from the data dictionary")
 
         if validation_errors:
             raise ImportValidationException("\n".join(validation_errors))
@@ -552,9 +478,7 @@ class ExperimentFileValidator(AbstractFileValidator):
 
         for variable in variables:
             if variable.variant == "categorical":
-                data[variable.code]["values"] = [
-                    str(value) for value in data[variable.code]["values"]
-                ]
+                data[variable.code]["values"] = [str(value) for value in data[variable.code]["values"]]
 
         return data
 
@@ -574,9 +498,7 @@ class ExperimentFileValidator(AbstractFileValidator):
 
         for variable in variables:
             if variable.code.lower() not in (key.lower() for key in data):
-                validation_errors.append(
-                    f"Variable {variable.code} is missing from the data dictionary"
-                )
+                validation_errors.append(f"Variable {variable.code} is missing from the data dictionary")
                 continue
 
             variable_data = data[variable.code]
@@ -615,50 +537,34 @@ class ExperimentFileValidator(AbstractFileValidator):
 
             if variant_is_numeric(variable.variant):
                 if not all(isinstance(value, (int, float)) for value in values):
-                    validation_errors.append(
-                        f"Values must be numeric for variable {variable.code}"
-                        f" of variant {variable.variant}"
-                    )
+                    validation_errors.append(f"Values must be numeric for variable {variable.code} of variant {variable.variant}")
                     continue
 
             elif variable.variant == "logical":
                 if not all(isinstance(value, bool) for value in values):
-                    validation_errors.append(
-                        f"Values must be boolean for variable {variable.code}"
-                        f" of variant {variable.variant}"
-                    )
+                    validation_errors.append(f"Values must be boolean for variable {variable.code} of variant {variable.variant}")
                     continue
 
             # validations only for run variant
             if index == "timestamps":
                 # check if timestamps are sorted
                 if not all(ids[i] < ids[i + 1] for i in range(len(ids) - 1)):
-                    validation_errors.append(
-                        f"Variable {variable.code} timestamps must be sorted"
-                    )
+                    validation_errors.append(f"Variable {variable.code} timestamps must be sorted")
                     continue
 
                 if not variant_details:
-                    validation_errors.append(
-                        "Start and end time are required for the experiment import."
-                    )
+                    validation_errors.append("Start and end time are required for the experiment import.")
                     continue
 
                 start_time = variant_details.get("startTime", None)
                 end_time = variant_details.get("endTime", None)
 
                 if not start_time or not end_time:
-                    validation_errors.append(
-                        "Start and end time are required for the experiment import"
-                    )
+                    validation_errors.append("Start and end time are required for the experiment import")
                     continue
 
-                start_timestamp = int(
-                    datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%SZ").timestamp()
-                )
-                end_timestamp = int(
-                    datetime.strptime(end_time, "%Y-%m-%dT%H:%M:%SZ").timestamp()
-                )
+                start_timestamp = int(datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%SZ").timestamp())
+                end_timestamp = int(datetime.strptime(end_time, "%Y-%m-%dT%H:%M:%SZ").timestamp())
 
                 # check if all timestamps are within the start and end time
                 if ids[0] < start_timestamp or ids[-1] > end_timestamp:
@@ -692,9 +598,7 @@ class SpectraFileValidator(AbstractFileValidator):
         """Format the file data"""
         return data
 
-    def validate(
-        self, variables: list[Variable], data: Any, variant: str = "run"
-    ) -> bool:
+    def validate(self, variables: Sequence[Variable], data: Any, variant: str = "run") -> bool:
         """Validate the file for importing"""
         validation_errors = []
 
@@ -704,60 +608,50 @@ class SpectraFileValidator(AbstractFileValidator):
             sample_id = "sampleId"
 
         if "spectra" not in data:
-            raise ImportValidationException(
-                ("Spectra data is missing. Please add the 'spectra' key to the data")
-            )
+            raise ImportValidationException(("Spectra data is missing. Please add the 'spectra' key to the data"))
 
         # save spectra variable in variable list
         spectra_variable = None
         for variable in variables:
-            if variable.group.code == "SPC":
+            if variable.group is None or variable.group.code is None:
+                validation_errors.append(f"Variable {variable.code}'s group is missing the code field")
+                continue
+            else:
+                group_code = variable.group.code
+
+            if group_code == "SPC":
                 if spectra_variable is not None:
-                    raise ImportValidationException(
-                        "Only one variable of the group Spectra is allowed"
-                    )
+                    raise ImportValidationException("Only one variable of the group Spectra is allowed")
                 spectra_variable = variable
                 variable_code = "spectra"
 
             else:
                 variable_code = variable.code
                 if variable.code.lower() not in (key.lower() for key in data):
-                    validation_errors.append(
-                        f"Variable {variable.code} is missing from the data dictionary"
-                    )
+                    validation_errors.append(f"Variable {variable.code} is missing from the data dictionary")
                     continue
 
             variable_data = data[variable_code]
             if not isinstance(variable_data, dict):
                 validation_errors.append(
-                    (
-                        f"Variable {variable_code} data must be a dictionary with"
-                        f"the mandatory fields {sample_id} and 'values'"
-                    )
+                    (f"Variable {variable_code} data must be a dictionary withthe mandatory fields {sample_id} and 'values'")
                 )
                 continue
 
             if sample_id not in variable_data or "values" not in variable_data:
-                validation_errors.append(
-                    f"Variable {variable_code} data must contain {sample_id} and 'values' key"
-                )
+                validation_errors.append(f"Variable {variable_code} data must contain {sample_id} and 'values' key")
                 continue
 
             ids = variable_data[sample_id]
             values = variable_data["values"]
 
             if not isinstance(ids, list) or not isinstance(values, list):
-                validation_errors.append(
-                    f"Variable {variable_code} data must contain {sample_id} and 'values' as lists"
-                )
+                validation_errors.append(f"Variable {variable_code} data must contain {sample_id} and 'values' as lists")
                 continue
 
             if len(ids) != len(values) or len(ids) == 0:
                 validation_errors.append(
-                    (
-                        f"Variable {variable_code} data can't be empty and must have equal length"
-                        f"of {sample_id} and values"
-                    )
+                    (f"Variable {variable_code} data can't be empty and must have equal lengthof {sample_id} and values")
                 )
                 continue
 
@@ -766,38 +660,26 @@ class SpectraFileValidator(AbstractFileValidator):
                     for date in ids:
                         if not is_date_in_format(date, "%Y-%m-%dT%H:%M:%S.%fZ"):
                             validation_errors.append(
-                                f"Timestamp {date} is not in the correct format."
-                                "The timestamp must be in the format %Y-%m-%dT%H:%M:%S.%fZ"
+                                f"Timestamp {date} is not in the correct format.The timestamp must be in the format %Y-%m-%dT%H:%M:%S.%fZ"
                             )
                             continue
 
                 if not all(isinstance(value, list) for value in values):
-                    validation_errors.append(
-                        f"Variable {variable_code} values must be a list of lists"
-                    )
+                    validation_errors.append(f"Variable {variable_code} values must be a list of lists")
                     continue
 
                 spectra_size = variable.size
                 for i, value in enumerate(values):
                     if len(value) != spectra_size:
-                        validation_errors.append(
-                            (
-                                f"Spectrum of index {i} has the wrong dimensions."
-                                f"It should be of length {spectra_size}"
-                            )
-                        )
+                        validation_errors.append((f"Spectrum of index {i} has the wrong dimensions.It should be of length {spectra_size}"))
                         continue
 
                     if not all(isinstance(val, (int, float)) for val in value):
-                        validation_errors.append(
-                            f"Variable {variable_code} values must all be numeric"
-                        )
+                        validation_errors.append(f"Variable {variable_code} values must all be numeric")
                         continue
 
         if spectra_variable is None:
-            raise ImportValidationException(
-                "A variable of the group Spectra is missing from the variable list"
-            )
+            raise ImportValidationException("A variable of the group Spectra is missing from the variable list")
 
         if validation_errors:
             raise ImportValidationException("\n".join(validation_errors))
@@ -820,9 +702,7 @@ class ExperimentValidator(AbstractValidator):
     def validate(self, entity: Union[Experiment, Recipe], client: Client) -> bool:
         if self.is_imported(entity, client):
             warnings.simplefilter("always")
-            warnings.warn(
-                f"Experiment {entity.name} is already present in the DB. Skipping import."
-            )
+            warnings.warn(f"Experiment {entity.name} is already present in the DB. Skipping import.")
             return False
 
         # Validate if experiment name already exists
@@ -833,28 +713,14 @@ class ExperimentValidator(AbstractValidator):
 
         response = client.get(EXPERIMENTS_URL, query_params=query_params)
         if int(response.headers.get("x-total-count")) > 0:  # type: ignore
-            raise ImportValidationException(
-                f"The experiment name {entity.name} already exists"
-            )
+            raise ImportValidationException(f"The experiment name {entity.name} already exists")
 
-        if not entity.product._validator.is_imported(
-            entity=entity.product, client=client
-        ):
-            raise ImportValidationException(
-                (
-                    f"Product {entity.product.code} is not present in the DB. "
-                    "Please import the product first"
-                )
-            )
+        if not entity.product._validator.is_imported(entity=entity.product, client=client):
+            raise ImportValidationException((f"Product {entity.product.code} is not present in the DB. Please import the product first"))
 
         for variable in entity.variables:
             if not variable._validator.is_imported(entity=variable, client=client):
-                raise ImportValidationException(
-                    (
-                        f"Variable {variable.code} is not present in the DB. "
-                        "Please import the variable first"
-                    )
-                )
+                raise ImportValidationException((f"Variable {variable.code} is not present in the DB. Please import the variable first"))
 
         if not entity.file_data:
             raise ImportValidationException("File data is missing")

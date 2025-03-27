@@ -1,9 +1,8 @@
-# pylint: disable=missing-docstring
 import unittest
 from unittest.mock import Mock, patch
 
 from dhl_sdk.authentication import APIKeyAuthentication
-from dhl_sdk.client import Client, DataHowLabClient
+from dhl_sdk.client import Client
 from dhl_sdk.crud import Result
 from dhl_sdk.entities import (
     CultivationHistoricalModel,
@@ -43,9 +42,7 @@ class TestProjectEntity(unittest.TestCase):
         self.assertEqual(len(projects), 2)
         self.assertEqual(projects[0].id, "id-123")
         self.assertEqual(projects[0].name, "project 1")
-        self.assertEqual(
-            projects[1].process_unit_id, "373c173a-1f23-4e56-874e-90ca4702ec0d"
-        )
+        self.assertEqual(projects[1].process_unit_id, "373c173a-1f23-4e56-874e-90ca4702ec0d")
 
     def test_projects_result(self):
         project_requests = CultivationProject.requests(self.client)
@@ -114,8 +111,7 @@ class TestEntitiesRequests(unittest.TestCase):
             next(result)
 
         mock_get.assert_called_once_with(
-            "https://test.com/api/db/v2/projects?offset=0"
-            "&limit=5&archived=false&sortBy[createdAt]=desc",
+            "https://test.com/api/db/v2/projects?offset=0&limit=5&archived=false&sortBy[createdAt]=desc",
             headers={"Authorization": "ApiKey test_auth_key"},
         )
 
@@ -128,8 +124,7 @@ class TestEntitiesRequests(unittest.TestCase):
             next(result)
 
         mock_get.assert_called_once_with(
-            "https://test.com/api/db/v2/pipelineJobs?offset=0"
-            "&limit=5&archived=false&sortBy[createdAt]=desc",
+            "https://test.com/api/db/v2/pipelineJobs?offset=0&limit=5&archived=false&sortBy[createdAt]=desc",
             headers={"Authorization": "ApiKey test_auth_key"},
         )
 
@@ -142,7 +137,6 @@ class TestEntitiesRequests(unittest.TestCase):
             next(result)
 
         mock_get.assert_called_once_with(
-            "https://test.com/api/db/v2/pipelineJobs?offset=0"
-            "&limit=5&archived=false&sortBy[createdAt]=desc",
+            "https://test.com/api/db/v2/pipelineJobs?offset=0&limit=5&archived=false&sortBy[createdAt]=desc",
             headers={"Authorization": "ApiKey test_auth_key"},
         )
