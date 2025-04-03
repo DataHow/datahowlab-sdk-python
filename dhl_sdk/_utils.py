@@ -8,7 +8,7 @@ from typing import Literal, Optional, Union
 import numpy as np
 from pydantic import BaseModel, Field, model_validator
 
-from dhl_sdk._constants import GROUPS_URL
+from dhl_sdk._constants import DB_GROUPS_URL
 from dhl_sdk.crud import Client
 from dhl_sdk.exceptions import InvalidConfidenceException
 
@@ -29,7 +29,7 @@ class VariableGroupCodes:
 
     def _initialize(self, client: Client):
         group_codes = {}
-        groups = client.get(GROUPS_URL).json()
+        groups = client.get(DB_GROUPS_URL).json()
 
         for group in groups:
             group_codes[group["name"]] = (group["id"], group["code"])

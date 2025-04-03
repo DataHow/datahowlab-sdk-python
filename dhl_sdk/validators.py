@@ -13,10 +13,10 @@ from dhl_sdk._input_processing import (
 )
 from dhl_sdk._utils import is_date_in_format
 from dhl_sdk._constants import (
-    EXPERIMENTS_URL,
-    FILES_URL,
-    PRODUCTS_URL,
-    VARIABLES_URL,
+    DB_EXPERIMENTS_URL,
+    DB_FILES_URL,
+    DB_PRODUCTS_URL,
+    DB_VARIABLES_URL,
 )
 from dhl_sdk.crud import Client, CRUDClient
 from dhl_sdk.exceptions import ImportValidationException
@@ -166,7 +166,7 @@ class VariableValidator(AbstractValidator):
             "limit": "0",
         }
 
-        response = client.get(VARIABLES_URL, query_params=query_params)
+        response = client.get(DB_VARIABLES_URL, query_params=query_params)
         if int(response.headers.get("x-total-count", "0")) > 0:
             validation_errors.append(f"The variable code {entity.code} already exists")
 
@@ -178,7 +178,7 @@ class VariableValidator(AbstractValidator):
             "limit": "0",
         }
 
-        response = client.get(VARIABLES_URL, query_params=query_params)
+        response = client.get(DB_VARIABLES_URL, query_params=query_params)
         if int(response.headers.get("x-total-count", "0")) > 0:
             validation_errors.append(f"The variable name {entity.name} already exists")
 
@@ -197,7 +197,7 @@ class VariableValidator(AbstractValidator):
                     validation_errors.append("Variable Flow references must have a reference to a X variable (measurement_id)")
                 else:
                     measurement_id = reference.measurement_id
-                    response = client.get(f"{VARIABLES_URL}/{measurement_id}")
+                    response = client.get(f"{DB_VARIABLES_URL}/{measurement_id}")
                     if response.status_code != 200:
                         validation_errors.append(
                             f"Variable with id {measurement_id} does not exist."
@@ -211,7 +211,7 @@ class VariableValidator(AbstractValidator):
 
                 if reference.concentration_id:
                     concentration_id = reference.concentration_id
-                    response = client.get(f"{VARIABLES_URL}/{concentration_id}")
+                    response = client.get(f"{DB_VARIABLES_URL}/{concentration_id}")
                     if response.status_code != 200:
                         validation_errors.append(
                             f"Variable with id {concentration_id} does not exist."
@@ -227,7 +227,7 @@ class VariableValidator(AbstractValidator):
 
                 if reference.fraction_id:
                     fraction_id = reference.fraction_id
-                    response = client.get(f"{VARIABLES_URL}/{fraction_id}")
+                    response = client.get(f"{DB_VARIABLES_URL}/{fraction_id}")
                     if response.status_code != 200:
                         validation_errors.append(
                             f"Variable with id {fraction_id} does not exist."
@@ -257,14 +257,14 @@ class VariableValidator(AbstractValidator):
                 "archived": "any",
             }
 
-            response = client.get(VARIABLES_URL, query_params=query_params)
+            response = client.get(DB_VARIABLES_URL, query_params=query_params)
             if int(response.headers.get("x-total-count", "0")) > 0:
                 entity.id = response.json()[0]["id"]
                 return True
             else:
                 return False
 
-        response = client.get(f"{VARIABLES_URL}/{entity.id}")
+        response = client.get(f"{DB_VARIABLES_URL}/{entity.id}")
         return response.status_code == 200
 
 
@@ -292,11 +292,9 @@ class ProductValidator(AbstractValidator):
             "archived": "any",
         }
 
-        response = client.get(PRODUCTS_URL, query_params=query_params)
+        response = client.get(DB_PRODUCTS_URL, query_params=query_params)
         if int(response.headers.get("x-total-count", "0")) > 0:
-            validation_errors.append(
-                f"This product code {entity.code} is already taken"
-            )
+            validation_errors.append(f"This product code {entity.code} is already taken")
 
         # Validate if variable name already exists
         query_params = {
@@ -304,11 +302,9 @@ class ProductValidator(AbstractValidator):
             "archived": "any",
         }
 
-        response = client.get(PRODUCTS_URL, query_params=query_params)
+        response = client.get(DB_PRODUCTS_URL, query_params=query_params)
         if int(response.headers.get("x-total-count", "0")) > 0:
-            validation_errors.append(
-                f"This product name {entity.name} is already taken"
-            )
+            validation_errors.append(f"This product name {entity.name} is already taken")
 
         if validation_errors:
             raise ImportValidationException("\n".join(validation_errors))
@@ -325,14 +321,14 @@ class ProductValidator(AbstractValidator):
                 "archived": "any",
             }
 
-            response = client.get(PRODUCTS_URL, query_params=query_params)
+            response = client.get(DB_PRODUCTS_URL, query_params=query_params)
             if int(response.headers.get("x-total-count", "0")) > 0:
                 entity.id = response.json()[0]["id"]
                 return True
             else:
                 return False
 
-        response = client.get(f"{PRODUCTS_URL}/{entity.id}")
+        response = client.get(f"{DB_PRODUCTS_URL}/{entity.id}")
         return response.status_code == 200
 
 
@@ -388,20 +384,14 @@ class RecipeFileValidator(AbstractFileValidator):
         validation_errors = []
 
         # check if there are X variables
-        if not any(
-            var.group is not None and var.group.code == "X" for var in variables
-        ):
-            raise ImportValidationException(
-                ("No variables 'X' found. 'X' variables are mandatory for the recipe.")
-            )
+        if not any(var.group is not None and var.group.code == "X" for var in variables):
+            raise ImportValidationException(("No variables 'X' found. 'X' variables are mandatory for the recipe."))
 
         timedependent_variable_size = None
 
         for variable in variables:
             if variable.group is None or variable.group.code is None:
-                validation_errors.append(
-                    f"Variable {variable.code}'s group is missing the code field"
-                )
+                validation_errors.append(f"Variable {variable.code}'s group is missing the code field")
                 continue
             else:
                 group_code = variable.group.code
@@ -409,10 +399,7 @@ class RecipeFileValidator(AbstractFileValidator):
             if variable.code in data:
                 # check if there are output values
                 if groupcode_is_output(group_code):
-                    validation_errors.append(
-                        f"Variable {variable.code} is an Output,"
-                        " so it's not allowed in the recipe"
-                    )
+                    validation_errors.append(f"Variable {variable.code} is an Output, so it's not allowed in the recipe")
                     continue
 
                 # check if , for feedConc variables, the corresponding feed
@@ -486,12 +473,7 @@ class RecipeFileValidator(AbstractFileValidator):
                 else:
                     # validate if non time dependent inputs have length of 1 (only initial values)
                     if len(values) != 1 and group_code != "X":
-                        validation_errors.append(
-                            (
-                                f"Input {variable.code} only requires initial "
-                                f"values, so it must have a length of 1"
-                            )
-                        )
+                        validation_errors.append((f"Input {variable.code} only requires initial values, so it must have a length of 1"))
                         continue
 
                 if variant_is_numeric(variable.variant):
@@ -516,7 +498,7 @@ class RecipeFileValidator(AbstractFileValidator):
         if not entity.id:
             return False
 
-        response = client.get(f"{FILES_URL}/{entity.id}")
+        response = client.get(f"{DB_FILES_URL}/{entity.id}")
         return response.status_code == 200
 
 
@@ -628,7 +610,7 @@ class ExperimentFileValidator(AbstractFileValidator):
         if not entity.id:
             return False
 
-        response = client.get(f"{FILES_URL}/{entity.id}")
+        response = client.get(f"{DB_FILES_URL}/{entity.id}")
         return response.status_code == 200
 
 
@@ -640,9 +622,7 @@ class SpectraFileValidator(AbstractFileValidator):
         """Format the file data"""
         return data
 
-    def validate(
-        self, variables: Sequence[Variable], data: Any, variant: str = "run"
-    ) -> bool:
+    def validate(self, variables: Sequence[Variable], data: Any, variant: str = "run") -> bool:
         """Validate the file for importing"""
         validation_errors = []
 
@@ -658,9 +638,7 @@ class SpectraFileValidator(AbstractFileValidator):
         spectra_variable = None
         for variable in variables:
             if variable.group is None or variable.group.code is None:
-                validation_errors.append(
-                    f"Variable {variable.code}'s group is missing the code field"
-                )
+                validation_errors.append(f"Variable {variable.code}'s group is missing the code field")
                 continue
             else:
                 group_code = variable.group.code
@@ -738,7 +716,7 @@ class SpectraFileValidator(AbstractFileValidator):
         if not entity.id:
             return False
 
-        response = client.get(f"{FILES_URL}/{entity.id}")
+        response = client.get(f"{DB_FILES_URL}/{entity.id}")
         return response.status_code == 200
 
 
@@ -757,7 +735,7 @@ class ExperimentValidator(AbstractValidator):
             "archived": "false",
         }
 
-        response = client.get(EXPERIMENTS_URL, query_params=query_params)
+        response = client.get(DB_EXPERIMENTS_URL, query_params=query_params)
         if int(response.headers.get("x-total-count")) > 0:  # type: ignore
             raise ImportValidationException(f"The experiment name {entity.name} already exists")
 

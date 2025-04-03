@@ -12,6 +12,7 @@ Classes:
 from abc import ABC, abstractmethod
 from typing import Literal, Optional, Type, Union
 
+import api_types
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -28,13 +29,6 @@ from dhl_sdk._input_processing import (
     SpectraPreprocessor,
     format_predictions,
 )
-from dhl_sdk._constants import (
-    DATASETS_URL,
-    MODELS_URL,
-    PREDICT_URL,
-    PROJECTS_URL,
-    TEMPLATES_URL,
-)
 from dhl_sdk._utils import (
     PredictionRequestConfig,
     Predictions,
@@ -48,105 +42,18 @@ from dhl_sdk.exceptions import (
     ModelPredictionException,
     PredictionRequestException,
 )
+from dhl_sdk._constants import (
+    EXT_MODELS_URL,
+    EXT_PROJECTS_URL,
+)
 
 
-class Dataset(BaseModel):
-    """Model Dataset"""
-
-    id: str = Field(alias="id")
-    name: str = Field(alias="name")
-    description: str = Field(alias="description")
-    variables: list[Variable] = Field(alias="variables")
-    experiments: list[Experiment] = Field(default=[], alias="experiments")
-    _client: Client = PrivateAttr()
-
-    def __init__(self, **data):
-        super().__init__(**data)
-        self._client = data["client"]
-
-    def get_data(self, client: DataBaseClient) -> list[dict]:
-        """Get the data from the experiments
-
-        Returns:
-        --------
-            list[dict]: List with the experiment data organized by:
-                key: variable code
-                value: dictionary with 2 keys:
-                    - "values": list with the values
-                    - "timestamps": list with the timestamps for each value
-        """
-
-        run_data = []
-        for experiment in self.experiments:
-            data = experiment.get_data(client=client)
-            run_data.append(data)
-
-        return run_data
-
-    @model_validator(mode="before")  # type: ignore
-    @classmethod
-    def _unpack_reference_entities(cls, data):
-        def unpack_entity(source: str, entity):
-            unpacked = []
-
-            for i, info in enumerate(data[source]):
-                try:
-                    entity_id = info["id"]
-                except KeyError as err:
-                    raise KeyError(f"The {source} index {i} does not contain an id") from err
-
-                var = entity.requests(data["client"]).get(entity_id)
-                unpacked.append(var)
-
-            data[source] = unpacked
-
-        unpack_entity("variables", Variable)
-        unpack_entity("experiments", Experiment)
-
-        return data
-
-    @staticmethod
-    def requests(client: Client) -> CRUDClient["Dataset"]:
-        return CRUDClient["Dataset"](client, DATASETS_URL, Dataset)
+# FIXME replace datasets with model/experiments (/data)
 
 
-class SpectraDataset(Dataset):
-    """Pydantic Model Dataset for Spectra"""
-
-    _client: Client = PrivateAttr()
-
-    def __init__(self, **data):
-        super().__init__(**data)
-        self._client = data["client"]
-
-    def get_spectra_index(self) -> int:
-        """Get the index of the spectra variable"""
-        for index, variable in enumerate(self.variables):
-            if variable.variant == "spectrum":
-                return index
-        raise ValueError("No spectrum variable found in dataset")
-
-    def get_spectra_code(self) -> str:
-        """Get variable code of spectra variable"""
-        for variable in self.variables:
-            if variable.variant == "spectrum":
-                return variable.code
-        raise ValueError("No spectrum variable found in dataset")
-
-    @staticmethod
-    def requests(client: Client) -> CRUDClient["SpectraDataset"]:
-        return CRUDClient["SpectraDataset"](client, DATASETS_URL, SpectraDataset)
-
-
-class Model(BaseModel, ABC):
+class Model(api_types.Model, ABC):
     """Pydantic BaseModel for predictive models from the API"""
 
-    id: str = Field(alias="id")
-    name: str = Field(alias="name")
-    status: str = Field(alias="status")
-    project_id: str = Field(alias="projectId")
-    dataset: Dataset = Field(alias="dataset")
-    config: dict = Field(alias="config")
     _client: Client = PrivateAttr()
 
     @property
@@ -170,7 +77,7 @@ class Model(BaseModel, ABC):
         predictions = []
         for prediction_data in json_data:
             try:
-                response = self._client.post(PREDICT_URL, prediction_data)
+                response = self._client.post(f"{EXT_MODELS_URL}/{self.id}/predict", prediction_data)
                 response.raise_for_status()
 
                 # in case of an error in the response (not HTTP)
@@ -180,34 +87,30 @@ class Model(BaseModel, ABC):
             except Exception as ex:
                 raise ex
 
-            predictions.append(PredictionResponse(**response.json()))
+            predictions.append(PredictionResponse.model_validate(response.json()))
 
         return format_predictions(
-            predictions, model=self  # type: ignore - FIXME if still relevant
+            predictions,
+            model=self,  # type: ignore - FIXME if still relevant
         )
 
     @property
-    def model_variables(self) -> list[Variable]:
+    def experiments(self) -> list[api_types.Experiment]:
+        # TODO
+        response = self._client.post(f"{EXT_MODELS_URL}/{self.id}/experiments")
+        response.raise_for_status()
+
+        # TODO paginated result
+        return model_experiments
+
+    @property
+    def variables(self) -> list[api_types.Variable]:
         """List of the variables used in the model"""
 
-        model_variables = []
-        groups: dict = self.config["groups"]
+        response = self._client.post(f"{EXT_MODELS_URL}/{self.id}/variables")
+        response.raise_for_status()
 
-        for variable in self.dataset.variables:
-            variable_id = variable.id
-            for group, variables in groups.items():
-                if variable_id in variables:
-                    model_variables.append(variable)
-                    if group == "Flows":
-                        feed_concentrations = [
-                            ref.concentration_id
-                            for ref in variable.variant_details.references  # type: ignore - will be removed in favor of ext api
-                            if ref.concentration_id
-                        ]
-                        if feed_concentrations:
-                            groups.update({variable_id: feed_concentrations})
-                    break
-
+        # TODO paginated result
         return model_variables
 
     def get_model_variables_codes(self) -> list[str]:
@@ -327,7 +230,7 @@ class SpectraModel(Model):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["SpectraModel"]:
-        return CRUDClient["SpectraModel"](client, MODELS_URL, SpectraModel)
+        return CRUDClient["SpectraModel"](client, EXT_MODELS_URL, SpectraModel)
 
 
 class CultivationModel(Model, ABC):
@@ -422,7 +325,7 @@ class CultivationPropagationModel(CultivationModel):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["CultivationPropagationModel"]:
-        return CRUDClient["CultivationPropagationModel"](client, MODELS_URL, CultivationPropagationModel)
+        return CRUDClient["CultivationPropagationModel"](client, EXT_MODELS_URL, CultivationPropagationModel)
 
 
 class CultivationHistoricalModel(CultivationModel):
@@ -496,7 +399,7 @@ class CultivationHistoricalModel(CultivationModel):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["CultivationHistoricalModel"]:
-        return CRUDClient["CultivationHistoricalModel"](client, MODELS_URL, CultivationHistoricalModel)
+        return CRUDClient["CultivationHistoricalModel"](client, EXT_MODELS_URL, CultivationHistoricalModel)
 
 
 class ModelFactory:
@@ -527,13 +430,9 @@ class ModelFactory:
         return model
 
 
-class Project(BaseModel, ABC):
+class Project(api_types.Project, ABC):
     """Abstract class for a DHL Project"""
 
-    id: str = Field(alias="id")
-    name: str = Field(alias="name")
-    description: str = Field(alias="description")
-    process_unit_id: str = Field(alias="processUnitId")
     _client: Client = PrivateAttr()
 
     def get_datasets(self, name: Optional[str] = None) -> Result[Dataset]:
@@ -614,16 +513,16 @@ class SpectraProject(Project):
         return results
 
     def _get_model_query_params(self, name: Optional[str] = None) -> dict[str, str]:
-        query_params = {"filterBy[projectId]": self.id}
+        query_params = {}
 
         if name is not None:
-            query_params.update({"filterBy[name]": name})
+            query_params.update({"name": name})
 
         return query_params
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["SpectraProject"]:
-        return CRUDClient["SpectraProject"](client, PROJECTS_URL, SpectraProject)
+        return CRUDClient["SpectraProject"](client, EXT_PROJECTS_URL, SpectraProject)
 
 
 class CultivationProject(Project):
@@ -652,6 +551,7 @@ class CultivationProject(Project):
         query_params = self._get_model_query_params(name=name, model_type=model_type)
 
         model = ModelFactory(self.process_unit_id).get_model(model_type=model_type)
+        # FIXME use GET project/models
         models = model.requests(self._client)
 
         results = Result[model](
@@ -666,23 +566,13 @@ class CultivationProject(Project):
         name: Optional[str] = None,
         model_type: Literal["propagation", "historical"] = "propagation",
     ) -> dict[str, str]:
-        query_params = {"filterBy[projectId]": self.id}
+        query_params = {"type": model_type}
 
         if name is not None:
-            query_params.update({"filterBy[name]": name})
-
-        # get templateIds for propagation models
-        template_query_params = {
-            "filterByTag[type]": model_type,
-            "archived": "any",
-        }
-        template_list = self._client.get(TEMPLATES_URL, template_query_params).json()
-        template_ids = get_id_list(template_list)
-
-        query_params.update({"filterBy[templateId]": "|".join(template_ids)})
+            query_params.update({"name": name})
 
         return query_params
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["CultivationProject"]:
-        return CRUDClient["CultivationProject"](client, PROJECTS_URL, CultivationProject)
+        return CRUDClient["CultivationProject"](client, EXT_PROJECTS_URL, CultivationProject)

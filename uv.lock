@@ -6,6 +6,12 @@ resolution-markers = [
     "python_full_version < '3.12'",
 ]
 
+[manifest]
+members = [
+    "datahowlab-api-types",
+    "datahowlab-sdk",
+]
+
 [[package]]
 name = "alabaster"
 version = "0.7.13"
@@ -372,10 +378,22 @@ wheels = [
 ]
 
 [[package]]
+name = "datahowlab-api-types"
+version = "0.1.0"
+source = { editable = "libs/datahowlab-api-types" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = ">=2.4.2,<3" }]
+
+[[package]]
 name = "datahowlab-sdk"
 version = "0.3.0"
 source = { editable = "." }
 dependencies = [
+    { name = "datahowlab-api-types" },
     { name = "numpy" },
     { name = "pydantic" },
     { name = "requests" },
@@ -396,6 +414,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "datahowlab-api-types", editable = "libs/datahowlab-api-types" },
     { name = "numpy", specifier = ">=1.26.1,<2" },
     { name = "pydantic", specifier = ">=2.4.2,<3" },
     { name = "requests", specifier = ">=2.31.0,<3" },

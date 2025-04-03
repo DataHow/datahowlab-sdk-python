@@ -7,6 +7,7 @@ requires-python = ">=3.9, <3.13"
 readme = "README.md"
 license = "Apache-2.0"
 dependencies = [
+    "datahowlab-api-types",
     "pydantic>=2.4.2,<3",
     "requests>=2.31.0,<3",
     "numpy>=1.26.1,<2",
@@ -29,11 +30,14 @@ dev = [
     "ruff>=0.11.0",
 ]
 
-[tool.hatch.build.targets.sdist]
-include = ["dhl_sdk"]
+[tool.uv.sources]
+datahowlab-api-types = { workspace = true }
 
-[tool.hatch.build.targets.wheel]
-include = ["dhl_sdk"]
+[tool.uv.workspace]
+members = ["libs/*"]
+
+[tool.hatch.build]
+packages = ["dhl_sdk"]
 
 [build-system]
 requires = ["hatchling"]

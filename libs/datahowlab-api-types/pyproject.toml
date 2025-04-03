@@ -1,0 +1,28 @@
+[project]
+name = "datahowlab-api-types"
+description = "Types used by the DataHowLab public API"
+readme = "README.md"
+authors = [{ name = "DataHow", email = "feedback@datahow.ch" }]
+requires-python = ">=3.9, <3.13"
+license = "Apache-2.0"
+dependencies = [
+    "pydantic>=2.4.2,<3",
+]
+version = "0.1.0" # Will be overridden by hatch below
+
+[tool.hatch.version]
+source = "root"
+root = "../../pyproject.toml"
+
+[tool.hatch.build]
+packages = ["src/api_types"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 140
+
+[tool.pyright]
+typeCheckingMode = "basic"

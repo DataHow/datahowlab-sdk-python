@@ -4,7 +4,7 @@ import csv
 from io import StringIO
 from typing import Any, Dict, Literal, Protocol
 
-from dhl_sdk._constants import FILES_URL
+from dhl_sdk._constants import DB_FILES_URL
 from dhl_sdk.crud import Client
 from dhl_sdk.validators import File as _File
 
@@ -32,13 +32,13 @@ class RunFileImporter:
     def import_file(self, file: File) -> str:
         """Import the run file to the project and dataset"""
 
-        response = self.client.post(FILES_URL, file.create_request_body())
+        response = self.client.post(DB_FILES_URL, file.create_request_body())
         file_id = response.json()["id"]
 
         import_data = {"timeseries": file._data}
 
         self.client.put(
-            f"{FILES_URL}/{file_id}/data",
+            f"{DB_FILES_URL}/{file_id}/data",
             data=import_data,
             content_type="application/json",
         )
@@ -56,25 +56,25 @@ class SpectraFileImporter:
         """Import the spectra file to the project and dataset"""
 
         # Create Spectra file
-        response = self.client.post(FILES_URL, self._file_spectra_body(file))
+        response = self.client.post(DB_FILES_URL, self._file_spectra_body(file))
         spectra_file_id = response.json()["id"]
 
         import_data = self._spectra_data(file._data, file.variant)
 
         self.client.put(
-            f"{FILES_URL}/{spectra_file_id}/data",
+            f"{DB_FILES_URL}/{spectra_file_id}/data",
             data=import_data,
             content_type="text/csv",
         )
 
         # Create Targets file
-        response = self.client.post(FILES_URL, self._file_vars_body(file))
+        response = self.client.post(DB_FILES_URL, self._file_vars_body(file))
         vars_file_id = response.json()["id"]
 
         import_data = self._variables_data(file._data, file.variant)
 
         self.client.put(
-            f"{FILES_URL}/{vars_file_id}/data",
+            f"{DB_FILES_URL}/{vars_file_id}/data",
             data=import_data,
             content_type="application/json",
         )

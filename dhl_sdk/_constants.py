@@ -5,17 +5,15 @@ importance. This file serves as a single source of truth for static values
 to improve code readability, maintainability, and consistency.
 """
 
-PRODUCTS_URL = "api/db/v2/products"
-RECIPES_URL = "api/db/v2/recipes"
-FILES_URL = "api/db/v2/files"
-EXPERIMENTS_URL = "api/db/v2/experiments"
-VARIABLES_URL = "api/db/v2/variables"
-GROUPS_URL = "api/db/v2/groups"
-PROJECTS_URL = "api/db/v2/projects"
-DATASETS_URL = "api/db/v2/datasets"
-MODELS_URL = "api/db/v2/pipelineJobs"
-TEMPLATES_URL = "api/db/v2/pipelineJobTemplates"
-PREDICT_URL = "api/pipeline/v1/pipeline"
+DB_PRODUCTS_URL = "api/db/v2/products"
+DB_RECIPES_URL = "api/db/v2/recipes"
+DB_FILES_URL = "api/db/v2/files"
+DB_EXPERIMENTS_URL = "api/db/v2/experiments"
+DB_VARIABLES_URL = "api/db/v2/variables"
+DB_GROUPS_URL = "api/db/v2/groups"
+
+EXT_PROJECTS_URL = "api/ext/v1/projects"
+EXT_MODELS_URL = "api/ext/v1/models"
 
 
 PROCESS_UNIT_MAP = {

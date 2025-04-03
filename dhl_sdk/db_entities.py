@@ -22,11 +22,11 @@ from pydantic import BaseModel, Field, PrivateAttr, model_validator
 from requests import Response
 
 from dhl_sdk._constants import (
-    EXPERIMENTS_URL,
-    FILES_URL,
-    PRODUCTS_URL,
-    RECIPES_URL,
-    VARIABLES_URL,
+    DB_EXPERIMENTS_URL,
+    DB_FILES_URL,
+    DB_PRODUCTS_URL,
+    DB_RECIPES_URL,
+    DB_VARIABLES_URL,
 )
 from dhl_sdk._utils import VariableGroupCodes
 from dhl_sdk.crud import Client, CRUDClient, DataBaseClient
@@ -377,7 +377,7 @@ class Variable(BaseModel, DataBaseEntity):
         if not self.id:
             return False
 
-        response = client.get(f"{VARIABLES_URL}/{self.id}")
+        response = client.get(f"{DB_VARIABLES_URL}/{self.id}")
         return response.status_code == 200
 
     @staticmethod
@@ -464,7 +464,7 @@ class Variable(BaseModel, DataBaseEntity):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["Variable"]:
-        return CRUDClient["Variable"](client, VARIABLES_URL, Variable.__call__)
+        return CRUDClient["Variable"](client, DB_VARIABLES_URL, Variable.__call__)
 
 
 class Product(BaseModel, DataBaseEntity):
@@ -525,7 +525,7 @@ class Product(BaseModel, DataBaseEntity):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["Product"]:
-        return CRUDClient["Product"](client, PRODUCTS_URL, Product.__call__)
+        return CRUDClient["Product"](client, DB_PRODUCTS_URL, Product.__call__)
 
 
 class File(BaseModel):
@@ -594,11 +594,11 @@ class File(BaseModel):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["File"]:
-        return CRUDClient["File"](client, FILES_URL, File)
+        return CRUDClient["File"](client, DB_FILES_URL, File)
 
     @staticmethod
     def download(client: Client, file_id: str) -> Response:
-        return client.get(f"{FILES_URL}/{file_id}/data")
+        return client.get(f"{DB_FILES_URL}/{file_id}/data")
 
 
 class Instances(BaseModel):
@@ -721,7 +721,7 @@ class Recipe(BaseModel, DataBaseEntity):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["Recipe"]:
-        return CRUDClient["Recipe"](client, RECIPES_URL, Recipe.__call__)
+        return CRUDClient["Recipe"](client, DB_RECIPES_URL, Recipe.__call__)
 
 
 class Experiment(BaseModel, DataBaseEntity):
@@ -785,9 +785,7 @@ class Experiment(BaseModel, DataBaseEntity):
             # skip if variable is spectra
             if variable.variant == Variant.SPECTRUM:
                 continue
-            self.instances.append(
-                Instances(column=variable.code, fileId=file_id)
-            )  # FIXME: code is not unique
+            self.instances.append(Instances(column=variable.code, fileId=file_id))  # FIXME: code is not unique
 
         return True
 
@@ -933,4 +931,4 @@ class Experiment(BaseModel, DataBaseEntity):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["Experiment"]:
-        return CRUDClient["Experiment"](client, EXPERIMENTS_URL, Experiment.__call__)
+        return CRUDClient["Experiment"](client, DB_EXPERIMENTS_URL, Experiment.__call__)
