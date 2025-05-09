@@ -3,7 +3,7 @@
 """API Entities Module
 
 This module provides a comprehensive set of Pydantic models that represent
-multiple entities obtained from the API . 
+multiple entities obtained from the API .
 
 Classes:
     - Dataset: Represents a structure for datasets present in the models.
@@ -690,7 +690,7 @@ class CultivationProject(Project):
 
         # get templateIds for propagation models
         template_query_params = {
-            "filterBy[type]": model_type,
+            "filterByTag[type]": model_type,
             "archived": "any",
         }
         template_list = self._client.get(TEMPLATES_URL, template_query_params).json()
