@@ -49,7 +49,12 @@ class Instance(BaseModel):
     timestamps: Optional[list[int]] = Field(default=None, alias="timestamps")
     sample_id: Optional[list[str]] = Field(default=None, alias="sampleId")
     steps: Optional[list[int]] = Field(default=None, alias="steps")
-    values: Union[list[Optional[float]], list[list[Optional[float]]]]
+    values: Union[
+        list[Optional[float]],
+        list[Optional[bool]],
+        list[Optional[str]],
+        list[Optional[list[float]]],
+    ]
 
     high_values: Optional[
         Union[list[Optional[float]], list[list[Optional[float]]]]
@@ -134,7 +139,7 @@ class PredictionPipelineRequest(BaseModel):
 
     instances: list[list[Optional[Instance]]]
     metadata: Metadata
-    stages: list[PipelineStage] = None
+    stages: Optional[list[PipelineStage]] = None
 
 
 class PredictionResponse(BaseModel):

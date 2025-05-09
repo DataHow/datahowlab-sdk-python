@@ -21,6 +21,7 @@ from dhl_sdk._spectra_utils import (
 )
 from dhl_sdk._utils import (
     Metadata,
+    OnlyId,
     PipelineStage,
     PredictionPipelineRequest,
     PredictionRequestConfig,
@@ -336,7 +337,7 @@ class CultivationPropagationPreprocessor(Preprocessor):
         json_data = PredictionPipelineRequest(
             instances=instances,
             metadata=Metadata(
-                variables=[{"id": var.id} for var in input_variables],
+                variables=[OnlyId(id=var.id) for var in input_variables],
             ),
             stages=[PipelineStage(config=self.prediction_config, id=self.model.id)],
         ).model_dump(
@@ -449,7 +450,7 @@ class CultivationHistoricalPreprocessor(Preprocessor):
         json_data = PredictionPipelineRequest(
             instances=instances,
             metadata=Metadata(
-                variables=[{"id": var.id} for var in input_variables],
+                variables=[OnlyId(id=var.id) for var in input_variables],
             ),
             stages=[PipelineStage(config=self.prediction_config, id=self.model.id)],
         ).model_dump(
