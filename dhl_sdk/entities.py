@@ -1,5 +1,7 @@
 # pylint: disable=no-member, arguments-differ
 # pylint: disable=unsubscriptable-object
+# pylint: disable=too-many-arguments
+
 """API Entities Module
 
 This module provides a comprehensive set of Pydantic models that represent
@@ -24,6 +26,7 @@ from dhl_sdk._input_processing import (
     SpectraPreprocessor,
     format_predictions,
 )
+
 from dhl_sdk._constants import (
     DATASETS_URL,
     MODELS_URL,
@@ -93,6 +96,13 @@ class Dataset(BaseModel):
                     raise KeyError(
                         f"The {source} index {i} does not contain an id"
                     ) from err
+            for i, info in enumerate(data[source]):
+                try:
+                    entity_id = info["id"]
+                except KeyError as err:
+                    raise KeyError(
+                        f"The {source} index {i} does not contain an id"
+                    ) from err
 
                 var = entity.requests(data["client"]).get(entity_id)
                 unpacked.append(var)
@@ -119,11 +129,18 @@ class SpectraDataset(Dataset):
         super().__init__(**data)
         self._client = data["client"]
 
-    def get_spectrum_index(self) -> int:
-        """Get the index of the spectrum variable"""
+    def get_spectra_index(self) -> int:
+        """Get the index of the spectra variable"""
         for index, variable in enumerate(self.variables):
             if variable.variant == "spectrum":
                 return index
+        raise ValueError("No spectrum variable found in dataset")
+
+    def get_spectra_code(self) -> str:
+        """Get variable code of spectra variable"""
+        for variable in self.variables:
+            if variable.variant == "spectrum":
+                return variable.code
         raise ValueError("No spectrum variable found in dataset")
 
     @staticmethod
@@ -163,12 +180,10 @@ class Model(BaseModel, ABC):
                 "The provided inputs failed the validation step"
             )
 
-        predict_url = f"{PREDICT_URL}/{self.id}/predict"
-
         predictions = []
         for prediction_data in json_data:
             try:
-                response = self._client.post(predict_url, prediction_data)
+                response = self._client.post(PREDICT_URL, prediction_data)
                 response.raise_for_status()
 
                 # in case of an error in the response (not HTTP)
@@ -183,10 +198,11 @@ class Model(BaseModel, ABC):
         return format_predictions(predictions, model=self)
 
     @property
-    def model_variables(self) -> dict:
+    def model_variables(self) -> list:
         """List of the variables used in the model"""
 
         model_variables = []
+        groups: dict = self.config["groups"]
         groups: dict = self.config["groups"]
 
         for variable in self.dataset.variables:
@@ -208,7 +224,6 @@ class Model(BaseModel, ABC):
 
     def get_model_variables_codes(self) -> list[str]:
         """Get the codes of the variables used in the model"""
-
         return [variable.code for variable in self.model_variables]
 
     @abstractmethod
@@ -228,11 +243,14 @@ class PredictionConfig(BaseModel):
         expected to fall, with a specified level of certainty, i.e, setting it to 80%
         corresponds to capturing the range between the 10th and 90th percentiles
         of the model's output. Must be a value between 1 and 99, by default 80
+    starting_index: int, optional
+        The index of the timestamp after which the prediction will commence
     """
 
     model_config = ConfigDict(protected_namespaces=())
 
     model_confidence: float = Field(default=80.0, ge=1.0, le=99.0)
+    starting_index: int = Field(default=0, ge=0)
 
 
 class SpectraModel(Model):
@@ -295,7 +313,13 @@ class SpectraModel(Model):
             spectra=spectra, inputs=inputs, model=self
         )
 
-        return super().get_predictions(spectra_processing_strategy)
+        predictions = super().get_predictions(spectra_processing_strategy)
+
+        spectra_code = self.dataset.get_spectra_code()
+        if spectra_code in predictions:
+            predictions.pop(spectra_code)
+
+        return predictions
 
     @property
     def inputs(self) -> list[str]:
@@ -316,7 +340,7 @@ class SpectraModel(Model):
 
     def _get_spectra_size(self) -> int:
         """Get the size of the spectra from variable information in the API"""
-        spectrum = self.dataset.variables[self.dataset.get_spectrum_index()]
+        spectrum = self.dataset.variables[self.dataset.get_spectra_index()]
         return spectrum.size
 
     @staticmethod
@@ -382,7 +406,6 @@ class CultivationPropagationModel(CultivationModel):
             details on the configuration parameters.
             See also: `PredictionConfig`
 
-
         Returns:
         --------
         Dictionary with predictions where:
@@ -406,7 +429,8 @@ class CultivationPropagationModel(CultivationModel):
             )
 
         prediction_config = PredictionRequestConfig.new(
-            model_confidence=config.model_confidence
+            model_confidence=config.model_confidence,
+            starting_index=config.starting_index,
         )
 
         data_processing_strategy = CultivationPropagationPreprocessor(
@@ -690,7 +714,7 @@ class CultivationProject(Project):
 
         # get templateIds for propagation models
         template_query_params = {
-            "filterByTag[type]": model_type,
+            "filterBy[type]": model_type,
             "archived": "any",
         }
         template_list = self._client.get(TEMPLATES_URL, template_query_params).json()

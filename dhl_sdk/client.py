@@ -1,8 +1,8 @@
-# pylint: disable=too-few-public-methods
+# pylint: disable=too-few-public-methods, too-many-arguments
 
 """Client for the DHL SpectraHow API
 
-This module defines the `Client` and `DataHowLabClient` classes, 
+This module defines the `Client` and `DataHowLabClient` classes,
 which are used to interact with the DataHowLab's API.
 
 Classes:
@@ -210,6 +210,8 @@ class Client:
         ----------
         project_type : T, optional
             The type of project to retrieve, by default Project
+        project_type : T, optional
+            The type of project to retrieve, by default Project
         name : str, optional
             Filter projects by name, by default None
         unit_id : str, optional
@@ -294,6 +296,7 @@ class DataHowLabClient:
         project_type: Literal["cultivation", "spectroscopy"] = "cultivation",
     ) -> Result[Project]:
         """
+        Retrieves an iterable of projects from the DHL API.
         Retrieves an iterable of projects from the DHL API.
 
         Parameters
@@ -529,5 +532,5 @@ class DataHowLabClient:
 
         if entity.validate_import(self._client):
             return entity.requests(self._client).create(entity.create_request_body())
-        else:
-            return entity
+
+        return entity

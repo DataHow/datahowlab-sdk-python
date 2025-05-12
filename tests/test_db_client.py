@@ -72,7 +72,7 @@ class TestProductEntity(unittest.TestCase):
             product = Product.new("bigcodename", "name", "description")
             self.assertEqual(
                 ex.exception.message,
-                "Product code must be from 1 to 5 characters long",
+                "Product code must be from 1 to 6 characters long",
             )
 
         product = Product.new("code", "name", "description")

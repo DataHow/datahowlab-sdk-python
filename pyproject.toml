@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "datahowlab-sdk"
-version = "0.2.4"
+version = "0.2.5"
 description = "The DataHowLab SDK for Python"
 license = "Apache-2.0"
 authors = ["DataHow <feedback@datahow.ch>"]

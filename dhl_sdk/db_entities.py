@@ -2,7 +2,7 @@
 
 This module provides a comprehensive set of Pydantic models that represent
 multiple entities that can be downloaded or uploaded to the DataBase through
-the API . 
+the API .
 
 Classes:
     - Experiment: Represents a structure for experiments
@@ -11,7 +11,7 @@ Classes:
     - Product: Represents a structure for products present in experiments and recipes
     """
 
-# pylint: disable=no-member, protected-access
+# pylint: disable=no-member, protected-access, too-many-arguments
 
 import copy
 import csv
@@ -32,6 +32,7 @@ from dhl_sdk._constants import (
     RECIPES_URL,
     VARIABLES_URL,
 )
+
 from dhl_sdk._utils import VariableGroupCodes
 from dhl_sdk.crud import Client, CRUDClient, DataBaseClient
 from dhl_sdk.exceptions import (
@@ -439,7 +440,7 @@ class Variable(BaseModel, DataBaseEntity):
         Parameters
         ----------
         code : str
-            Code of the variable (must be unique and from 1 to 5 characters long)
+            Code of the variable
         name : str
             Name of the variable
         measurement_unit : str
@@ -505,6 +506,9 @@ class Product(BaseModel, DataBaseEntity):
     code: str = Field(alias="code")
     name: str = Field(alias="name")
     description: Optional[str] = Field(default="", alias="description")
+    process_format_id: Optional[str] = Field(
+        default=PROCESS_FORMAT_MAP["mammalian"], alias="processFormatId"
+    )
 
     _validator: AbstractValidator = PrivateAttr(ProductValidator())
 
@@ -521,17 +525,20 @@ class Product(BaseModel, DataBaseEntity):
         code: str,
         name: str,
         description: Optional[str] = "",
+        process_format: Literal["mammalian", "microbial"] = "mammalian",
     ) -> "Product":
         """Create a new Product from user input
 
         Parameters
         ----------
         code : str
-            Code of the product (must be unique and from 1 to 5 characters long)
+            Code of the product (must be unique and from 1 to 6 characters long)
         name : str
             Name of the product
         description : Optional[str]
             Description of the product
+        process_format : Literal["mammalian", "microbial"]
+            The format of the process. Defaults to "mammalian".
 
         Returns
         -------
@@ -549,10 +556,17 @@ class Product(BaseModel, DataBaseEntity):
         if name == "":
             raise NewEntityException("Product name cannot be empty")
 
-        if len(code) > 5:
-            raise NewEntityException("Product code must be from 1 to 5 characters long")
+        if len(code) > 6:
+            raise NewEntityException("Product code must be from 1 to 6 characters long")
 
-        return Product(code=code, name=name, description=description)
+        if process_format not in PROCESS_FORMAT_MAP:
+            raise ValueError(
+                f"Format must be one of {list(PROCESS_FORMAT_MAP.keys())}, "
+                "but got '{process_format}'"
+            )
+        format_id = PROCESS_FORMAT_MAP[process_format]
+
+        return Product(code=code, name=name, description=description, processFormatId=format_id)
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["Product"]:
@@ -591,8 +605,8 @@ class File(BaseModel):
                 variables=variables, data=self._data
             )
             return True
-        else:
-            return False
+
+        return False
 
     def create_request_body(self) -> dict:
         """Create request body for creating a file"""
@@ -685,6 +699,7 @@ class Recipe(BaseModel, DataBaseEntity):
         if not self._validator.validate(entity=self, client=client):
             return False
 
+        file_id = None
         file_id = None
         if self.file_data.validate_import(self.variables):
             file_id = self.file_data.create_file(client)
@@ -793,7 +808,8 @@ class Experiment(BaseModel, DataBaseEntity):
                 "name": True,
                 "description": True,
                 "subunit": True,
-                "processFormatId": True,
+                "process_format_id": True,
+                "process_unit_id": True,
                 "product": {"id"},
                 "variables": {"__all__": {"id"}},
                 "instances": {"__all__": {"column", "fileId"}},
@@ -873,7 +889,7 @@ class Experiment(BaseModel, DataBaseEntity):
                 experiment_data[variable.code] = data["timeseries"][instance.column]
 
             elif response.headers["content-type"] == "text/csv":
-                csv_data = [row for row in csv.reader(StringIO(response.text))]
+                csv_data = list(csv.reader(StringIO(response.text)))
 
                 ids = [row[0] for row in csv_data]
                 if self.variant == "run":  # run variant

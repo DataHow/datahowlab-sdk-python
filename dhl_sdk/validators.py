@@ -2,6 +2,7 @@
 
 # pylint: disable=missing-function-docstring, arguments-differ
 # pylint: disable=missing-class-docstring, protected-access
+# pylint: disable=too-few-public-methods
 
 from datetime import datetime
 import math
@@ -18,6 +19,7 @@ from dhl_sdk._utils import is_date_in_format
 from dhl_sdk._constants import (
     EXPERIMENTS_URL,
     FILES_URL,
+    PROCESS_FORMAT_MAP,
     PRODUCTS_URL,
     VARIABLES_URL,
 )
@@ -68,6 +70,7 @@ class Product(Protocol):
     id: str
     code: str
     name: str
+    process_format_id: str
     _validator: AbstractValidator
 
 
@@ -233,8 +236,8 @@ class VariableValidator(AbstractValidator):
             if int(response.headers.get("x-total-count")) > 0:
                 entity.id = response.json()[0]["id"]
                 return True
-            else:
-                return False
+
+            return False
 
         response = client.get(f"{VARIABLES_URL}/{entity.id}")
         return response.status_code == 200
@@ -256,10 +259,15 @@ class ProductValidator(AbstractValidator):
             )
             return False
 
-        # check if length of code is less than 5
-        if len(entity.code) > 5:
+        # Check if process format id is valid
+        if entity.process_format_id not in list(PROCESS_FORMAT_MAP.values()):
+            validation_errors.append("The selected process format is not valid")
+
+
+        # check if length of code is less than 6
+        if len(entity.code) > 6:
             raise ImportValidationException(
-                "Product code must be from 1 to 5 characters long"
+                "Product code must be from 1 to 6 characters long"
             )
 
         # validate if variable code already exists
@@ -305,8 +313,8 @@ class ProductValidator(AbstractValidator):
             if int(response.headers.get("x-total-count")) > 0:
                 entity.id = response.json()[0]["id"]
                 return True
-            else:
-                return False
+
+            return False
 
         response = client.get(f"{PRODUCTS_URL}/{entity.id}")
         return response.status_code == 200
@@ -561,9 +569,8 @@ class ExperimentFileValidator(AbstractFileValidator):
         """Validate the file for importing"""
         validation_errors = []
 
-        if variant == "run":
-            sample_id = "timestamps"
-        elif variant == "samples":
+        sample_id = "timestamps"
+        if variant == "samples":
             sample_id = "sampleId"
 
         for variable in variables:

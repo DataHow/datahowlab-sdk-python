@@ -1,6 +1,6 @@
 """ New file data importers for DHL SDK"""
 
-# pylint: disable=missing-function-docstring, arguments-differ, protected-access
+# pylint: disable=missing-function-docstring, arguments-differ, protected-access, too-few-public-methods
 import csv
 from io import StringIO
 from typing import Any, Dict, Literal, Protocol
