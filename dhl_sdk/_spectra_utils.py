@@ -1,4 +1,4 @@
-"""This module contains utility functions used for spectra 
+"""This module contains utility functions used for spectra
 validation and formatting in the SDK
 """
 
@@ -9,6 +9,7 @@ import numpy as np
 from dhl_sdk._utils import (
     Instance,
     Metadata,
+    OnlyId,
     PipelineStage,
     PredictionPipelineRequest,
     SpectraPredictionConfig,
@@ -36,6 +37,8 @@ class Dataset(Protocol):
 class SpectraModel(Protocol):
     # pylint: disable=missing-class-docstring
     # pylint: disable=missing-function-docstring
+    id: str
+
     @property
     def inputs(self) -> list[str]:
         ...
@@ -132,7 +135,7 @@ def _convert_to_request(
         json_data = PredictionPipelineRequest(
             instances=[instance],
             metadata=Metadata(
-                variables=[{"id": var.id} for var in model.dataset.variables],
+                variables=[OnlyId(id=var.id) for var in model.dataset.variables],
             ),
             stages=[PipelineStage(config=SpectraPredictionConfig(), id=model.id)],
         ).model_dump(

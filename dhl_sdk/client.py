@@ -1,8 +1,8 @@
-# pylint: disable=too-few-public-methods
+# pylint: disable=too-few-public-methods, too-many-arguments
 
 """Client for the DHL SpectraHow API
 
-This module defines the `Client` and `DataHowLabClient` classes, 
+This module defines the `Client` and `DataHowLabClient` classes,
 which are used to interact with the DataHowLab's API.
 
 Classes:
@@ -19,7 +19,7 @@ from requests.adapters import HTTPAdapter
 import urllib3
 from urllib3.util.retry import Retry
 
-from dhl_sdk._constants import PROCESS_UNIT_MAP
+from dhl_sdk._constants import PROCESS_FORMAT_MAP, PROCESS_UNIT_MAP
 from dhl_sdk._utils import VariableGroupCodes, urljoin
 from dhl_sdk.authentication import APIKeyAuthentication
 from dhl_sdk.crud import Result
@@ -200,7 +200,8 @@ class Client:
         self,
         project_type: Type[T],
         name: Optional[str] = None,
-        unit_id: Optional[str] = None,
+        process_unit_id: Optional[str] = None,
+        process_format_id: Optional[str] = None,
         offset: int = 0,
     ) -> Result[T]:
         """Retrieve the available projects for the user
@@ -211,8 +212,10 @@ class Client:
             The type of project to retrieve, by default Project
         name : str, optional
             Filter projects by name, by default None
-        unit_id : str, optional
+        process_unit_id : str, optional
             Filter projects by process unit ID, by default None
+        process_format_id : str, optional
+            Filter projects by process format ID, by default None
         offset : int, optional
             The offset for pagination, must be a non-negative integer, by default 0
 
@@ -228,7 +231,8 @@ class Client:
         filter_params = {
             key: value
             for key, value in {
-                "filterBy[processUnitId]": unit_id,
+                "filterBy[processUnitId]": process_unit_id,
+                "filterBy[processFormatId]": process_format_id,
                 "filterBy[name]": name,
             }.items()
             if value is not None
@@ -286,6 +290,7 @@ class DataHowLabClient:
     def get_projects(
         self,
         name: Optional[str] = None,
+        process_format: Literal["mammalian", "microbial"] = "mammalian",
         project_type: Literal["cultivation", "spectroscopy"] = "cultivation",
     ) -> Result[Project]:
         """
@@ -297,6 +302,8 @@ class DataHowLabClient:
             A string to filter projects by name.
         offset : int, optional
             An integer representing the number of projects to skip before returning results.
+        process_format: Literal["mammalian", "microbial"], optional
+            The process format of the project, by default "mammalian"
         project_type : Literal["cultivation", "spectroscopy"], optional
             The type of project to retrieve, by default 'cultivation'
 
@@ -312,13 +319,21 @@ class DataHowLabClient:
                 "but got '{project_type}'"
             )
 
+        if process_format not in PROCESS_FORMAT_MAP:
+            raise ValueError(
+                f"Format must be one of {list(PROCESS_FORMAT_MAP.keys())}, "
+                "but got '{process_format}'"
+            )
+
         unit_id = PROCESS_UNIT_MAP[project_type]
+        format_id = PROCESS_FORMAT_MAP[process_format]
 
         project_class = PROJECT_TYPE_MAP[unit_id]
 
         return self._client.get_projects(
             name=name,
-            unit_id=unit_id,
+            process_unit_id=unit_id,
+            process_format_id=format_id,
             project_type=project_class,
         )
 
@@ -514,5 +529,5 @@ class DataHowLabClient:
 
         if entity.validate_import(self._client):
             return entity.requests(self._client).create(entity.create_request_body())
-        else:
-            return entity
+
+        return entity

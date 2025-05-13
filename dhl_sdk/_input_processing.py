@@ -524,7 +524,6 @@ def _validate_upstream_timestamps(
     if timestamps[0] < 0:
         raise InvalidTimestampsException("Timestamps must be positive")
 
-    # Convert timestamps to seconds
     unit_factors = {
         "s": 1,
         "sec": 1,

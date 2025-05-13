@@ -1,7 +1,7 @@
 """
-This module defines all the constants used across the project. Constants are 
-defined as variables with uppercase names to signify their immutability and 
-importance. This file serves as a single source of truth for static values 
+This module defines all the constants used across the project. Constants are
+defined as variables with uppercase names to signify their immutability and
+importance. This file serves as a single source of truth for static values
 to improve code readability, maintainability, and consistency.
 """
 
@@ -17,6 +17,11 @@ MODELS_URL = "api/db/v2/pipelineJobs"
 TEMPLATES_URL = "api/db/v2/pipelineJobTemplates"
 PREDICT_URL = "api/pipeline/v1/pipeline"
 
+
+PROCESS_FORMAT_MAP = {
+    "mammalian": "9c6b258f-6f07-4f18-aea3-e5e5bf703740",
+    "microbial": "7478a11e-fc1a-4708-a034-248154cc039b",
+}
 
 PROCESS_UNIT_MAP = {
     "cultivation": "04a324da-13a5-470b-94a1-bda6ac87bb86",

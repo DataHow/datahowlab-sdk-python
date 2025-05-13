@@ -2,6 +2,7 @@
 
 # pylint: disable=missing-function-docstring, arguments-differ
 # pylint: disable=missing-class-docstring, protected-access
+# pylint: disable=too-few-public-methods
 
 from datetime import datetime
 import math
@@ -18,6 +19,7 @@ from dhl_sdk._utils import is_date_in_format
 from dhl_sdk._constants import (
     EXPERIMENTS_URL,
     FILES_URL,
+    PROCESS_FORMAT_MAP,
     PRODUCTS_URL,
     VARIABLES_URL,
 )
@@ -68,6 +70,7 @@ class Product(Protocol):
     id: str
     code: str
     name: str
+    process_format_id: str
     _validator: AbstractValidator
 
 
@@ -233,8 +236,8 @@ class VariableValidator(AbstractValidator):
             if int(response.headers.get("x-total-count")) > 0:
                 entity.id = response.json()[0]["id"]
                 return True
-            else:
-                return False
+
+            return False
 
         response = client.get(f"{VARIABLES_URL}/{entity.id}")
         return response.status_code == 200
@@ -256,7 +259,11 @@ class ProductValidator(AbstractValidator):
             )
             return False
 
-        # check if length of code is less than 5
+        # Check if process format id is valid
+        if entity.process_format_id not in list(PROCESS_FORMAT_MAP.values()):
+            validation_errors.append("The selected process format is not valid")
+
+        # check if length of code is less than 6
         if len(entity.code) > 6:
             raise ImportValidationException(
                 "Product code must be from 1 to 6 characters long"
@@ -305,8 +312,8 @@ class ProductValidator(AbstractValidator):
             if int(response.headers.get("x-total-count")) > 0:
                 entity.id = response.json()[0]["id"]
                 return True
-            else:
-                return False
+
+            return False
 
         response = client.get(f"{PRODUCTS_URL}/{entity.id}")
         return response.status_code == 200
@@ -561,10 +568,9 @@ class ExperimentFileValidator(AbstractFileValidator):
         """Validate the file for importing"""
         validation_errors = []
 
-        if variant == "run":
-            sample_id = "timestamps"
-        elif variant == "samples":
-            sample_id = "sampleId"
+        index = "timestamps"
+        if variant == "samples":
+            index = "sampleId"
 
         for variable in variables:
             if variable.code.lower() not in (key.lower() for key in data):
@@ -578,23 +584,23 @@ class ExperimentFileValidator(AbstractFileValidator):
                 validation_errors.append(
                     (
                         f"Variable {variable.code} data must be a dictionary with"
-                        f"the mandatory fields {sample_id} and 'values'"
+                        f"the mandatory fields {index} and 'values'"
                     )
                 )
                 continue
 
-            if sample_id not in variable_data or "values" not in variable_data:
+            if index not in variable_data or "values" not in variable_data:
                 validation_errors.append(
-                    f"Variable {variable.code} data must contain {sample_id} and 'values' key"
+                    f"Variable {variable.code} data must contain {index} and 'values' key"
                 )
                 continue
 
-            ids = variable_data[sample_id]
+            ids = variable_data[index]
             values = variable_data["values"]
 
             if not isinstance(ids, list) or not isinstance(values, list):
                 validation_errors.append(
-                    f"Variable {variable.code} data must contain {sample_id} and 'values' as lists"
+                    f"Variable {variable.code} data must contain {index} and 'values' as lists"
                 )
                 continue
 
@@ -602,7 +608,7 @@ class ExperimentFileValidator(AbstractFileValidator):
                 validation_errors.append(
                     (
                         f"Variable {variable.code} data can't be empty and must have equal length"
-                        f"of {sample_id} and values"
+                        f"of {index} and values"
                     )
                 )
                 continue
@@ -624,7 +630,7 @@ class ExperimentFileValidator(AbstractFileValidator):
                     continue
 
             # validations only for run variant
-            if sample_id == "timestamps":
+            if index == "timestamps":
                 # check if timestamps are sorted
                 if not all(ids[i] < ids[i + 1] for i in range(len(ids) - 1)):
                     validation_errors.append(
