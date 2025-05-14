@@ -1,9 +1,11 @@
 # pylint: disable=no-member, arguments-differ
 # pylint: disable=unsubscriptable-object
+# pylint: disable=too-many-arguments
+
 """API Entities Module
 
 This module provides a comprehensive set of Pydantic models that represent
-multiple entities obtained from the API . 
+multiple entities obtained from the API .
 
 Classes:
     - Dataset: Represents a structure for datasets present in the models.
@@ -24,6 +26,7 @@ from dhl_sdk._input_processing import (
     SpectraPreprocessor,
     format_predictions,
 )
+
 from dhl_sdk._constants import (
     DATASETS_URL,
     MODELS_URL,
@@ -86,6 +89,13 @@ class Dataset(BaseModel):
         def unpack_entity(source: str, entity):
             unpacked = []
 
+            for i, info in enumerate(data[source]):
+                try:
+                    entity_id = info["id"]
+                except KeyError as err:
+                    raise KeyError(
+                        f"The {source} index {i} does not contain an id"
+                    ) from err
             for i, info in enumerate(data[source]):
                 try:
                     entity_id = info["id"]
@@ -188,10 +198,10 @@ class Model(BaseModel, ABC):
         return format_predictions(predictions, model=self)
 
     @property
-    def model_variables(self) -> dict:
+    def model_variables(self) -> list[Variable]:
         """List of the variables used in the model"""
 
-        model_variables = []
+        model_variables: list[Variable] = []
         groups: dict = self.config["groups"]
 
         for variable in self.dataset.variables:
@@ -213,7 +223,6 @@ class Model(BaseModel, ABC):
 
     def get_model_variables_codes(self) -> list[str]:
         """Get the codes of the variables used in the model"""
-
         return [variable.code for variable in self.model_variables]
 
     @abstractmethod
@@ -396,7 +405,6 @@ class CultivationPropagationModel(CultivationModel):
             details on the configuration parameters.
             See also: `PredictionConfig`
 
-
         Returns:
         --------
         Dictionary with predictions where:
@@ -562,6 +570,7 @@ class Project(BaseModel, ABC):
     name: str = Field(alias="name")
     description: str = Field(alias="description")
     process_unit_id: str = Field(alias="processUnitId")
+    process_format_id: Optional[str] = Field(alias="processFormatId", default=None)
     _client: Client = PrivateAttr()
 
     def get_datasets(self, name: Optional[str] = None) -> Result[Dataset]:
@@ -704,7 +713,7 @@ class CultivationProject(Project):
 
         # get templateIds for propagation models
         template_query_params = {
-            "filterByTag[type]": model_type,
+            "filterBy[type]": model_type,
             "archived": "any",
         }
         template_list = self._client.get(TEMPLATES_URL, template_query_params).json()
