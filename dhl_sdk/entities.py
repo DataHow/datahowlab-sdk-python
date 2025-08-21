@@ -16,7 +16,7 @@ Classes:
 from abc import ABC, abstractmethod
 from typing import Literal, Optional, Type, Union
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationError, model_validator
 
 from dhl_sdk._input_processing import (
     CultivationHistoricalPreprocessor,
@@ -90,22 +90,23 @@ class Dataset(BaseModel):
             unpacked = []
 
             for i, info in enumerate(data[source]):
-                try:
-                    entity_id = info["id"]
-                except KeyError as err:
-                    raise KeyError(
-                        f"The {source} index {i} does not contain an id"
-                    ) from err
-            for i, info in enumerate(data[source]):
-                try:
-                    entity_id = info["id"]
-                except KeyError as err:
-                    raise KeyError(
-                        f"The {source} index {i} does not contain an id"
-                    ) from err
+                if isinstance(info, entity):
+                    unpacked.append(info)
+                    continue
 
-                var = entity.requests(data["client"]).get(entity_id)
-                unpacked.append(var)
+                try:
+                    validated = entity.model_validate(info)
+                except ValidationError:
+                    try:
+                        entity_id = info["id"]
+                    except KeyError as err:
+                        raise KeyError(
+                            f"The {source} index {i} does not contain an id"
+                        ) from err
+
+                    validated = entity.requests(data["client"]).get(entity_id)
+
+                unpacked.append(validated)
 
             data[source] = unpacked
 

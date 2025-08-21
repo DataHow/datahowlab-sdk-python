@@ -264,9 +264,9 @@ class ProductValidator(AbstractValidator):
             validation_errors.append("The selected process format is not valid")
 
         # check if length of code is less than 6
-        if len(entity.code) > 6:
+        if len(entity.code) > 10:
             raise ImportValidationException(
-                "Product code must be from 1 to 6 characters long"
+                "Product code must be from 1 to 10 characters long"
             )
 
         # validate if variable code already exists

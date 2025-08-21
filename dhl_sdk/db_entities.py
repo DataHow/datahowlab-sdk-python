@@ -556,8 +556,8 @@ class Product(BaseModel, DataBaseEntity):
         if name == "":
             raise NewEntityException("Product name cannot be empty")
 
-        if len(code) > 6:
-            raise NewEntityException("Product code must be from 1 to 6 characters long")
+        if len(code) > 10:
+            raise NewEntityException("Product code must be from 1 to 10 characters long")
 
         if process_format not in PROCESS_FORMAT_MAP:
             raise ValueError(
