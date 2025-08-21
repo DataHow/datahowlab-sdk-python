@@ -16,7 +16,14 @@ Classes:
 from abc import ABC, abstractmethod
 from typing import Literal, Optional, Type, Union
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationError, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    ValidationError,
+    model_validator,
+)
 
 from dhl_sdk._input_processing import (
     CultivationHistoricalPreprocessor,
@@ -41,7 +48,7 @@ from dhl_sdk._utils import (
     get_id_list,
 )
 from dhl_sdk.crud import Client, CRUDClient, DataBaseClient, Result
-from dhl_sdk.db_entities import Experiment, Variable
+from dhl_sdk.db_entities import Experiment, Variable, UnresolvedInstance
 from dhl_sdk.exceptions import (
     InvalidInputsException,
     ModelPredictionException,
@@ -58,12 +65,14 @@ class Dataset(BaseModel):
     description: str = Field(alias="description")
     variables: list[Variable] = Field(alias="variables")
     experiments: list[Experiment] = Field(default=[], alias="experiments")
+    instances: list[list[UnresolvedInstance]] = Field(alias="instances")
     _client: Client = PrivateAttr()
 
     def __init__(self, **data):
         super().__init__(**data)
         self._client = data["client"]
 
+    # pylint: disable=protected-access
     def get_data(self, client: DataBaseClient) -> list[dict]:
         """Get the data from the experiments
 
@@ -77,8 +86,10 @@ class Dataset(BaseModel):
         """
 
         run_data = []
-        for experiment in self.experiments:
-            data = experiment.get_data(client=client)
+        for i, experiment in enumerate(self.experiments):
+            data = experiment._get_data_inner(
+                client=client, variables=self.variables, instances=self.instances[i]
+            )
             run_data.append(data)
 
         return run_data
@@ -89,24 +100,42 @@ class Dataset(BaseModel):
         def unpack_entity(source: str, entity):
             unpacked = []
 
-            for i, info in enumerate(data[source]):
+            items = data.get(source, [])
+            for i, info in enumerate(items):
+                # 1) Already a model instance
                 if isinstance(info, entity):
                     unpacked.append(info)
                     continue
 
+                # 2) Dict with only {"id": ...} → fetch directly (skip validation)
+                if isinstance(info, dict) and set(info.keys()) == {"id"}:
+                    obj = entity.requests(data["client"]).get(info["id"])
+                    unpacked.append(obj)
+                    continue
+
+                # 3) Try full entity validation
                 try:
                     validated = entity.model_validate(info)
-                except ValidationError:
-                    try:
-                        entity_id = info["id"]
-                    except KeyError as err:
-                        raise KeyError(
-                            f"The {source} index {i} does not contain an id"
-                        ) from err
+                    unpacked.append(validated)
+                    continue
+                except (
+                    ValidationError,
+                    KeyError,
+                    AttributeError,
+                    TypeError,
+                    ValueError,
+                ) as exc:
+                    # 4) Fallback: fetch by id from a dict payload
+                    if isinstance(info, dict) and "id" in info:
+                        obj = entity.requests(data["client"]).get(info["id"])
+                        unpacked.append(obj)
+                        continue
 
-                    validated = entity.requests(data["client"]).get(entity_id)
-
-                unpacked.append(validated)
+                    # 5) Otherwise, this item is invalid
+                    raise ValueError(
+                        f"Unsupported item at {source}[{i}] — expected a valid {entity.__name__} "
+                        f"payload, an instance, or a dict with an 'id'. Got {type(info).__name__}."
+                    ) from exc
 
             data[source] = unpacked
 
