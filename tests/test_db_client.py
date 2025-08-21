@@ -69,10 +69,10 @@ class TestProductEntity(unittest.TestCase):
 
     def test_new_product(self):
         with self.assertRaises(NewEntityException) as ex:
-            product = Product.new("bigcodename", "name", "description")
+            product = Product.new("bigcodenamethatwillfail", "name", "description")
             self.assertEqual(
                 ex.exception.message,
-                "Product code must be from 1 to 6 characters long",
+                "Product code must be from 1 to 10 characters long",
             )
 
         product = Product.new("code", "name", "description")

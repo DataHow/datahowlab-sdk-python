@@ -556,8 +556,10 @@ class Product(BaseModel, DataBaseEntity):
         if name == "":
             raise NewEntityException("Product name cannot be empty")
 
-        if len(code) > 6:
-            raise NewEntityException("Product code must be from 1 to 6 characters long")
+        if len(code) > 10:
+            raise NewEntityException(
+                "Product code must be from 1 to 10 characters long"
+            )
 
         if process_format not in PROCESS_FORMAT_MAP:
             raise ValueError(
@@ -655,7 +657,7 @@ class File(BaseModel):
         return client.get(f"{FILES_URL}/{file_id}/data")
 
 
-class Instances(BaseModel):
+class UnresolvedInstance(BaseModel):
     """Pydantic model for Unresolved Instances"""
 
     column: str = Field(alias="column")
@@ -673,7 +675,7 @@ class Recipe(BaseModel, DataBaseEntity):
     product: Product = Field(alias="product")
     duration: Optional[int] = Field(default=None, alias="duration")
     variables: list[Variable] = Field(alias="variables")
-    instances: list[Instances] = Field(alias="instances")
+    instances: list[UnresolvedInstance] = Field(alias="instances")
     file_data: Optional[File] = None
 
     _validator: AbstractValidator = PrivateAttr(ExperimentValidator())
@@ -709,7 +711,9 @@ class Recipe(BaseModel, DataBaseEntity):
             raise ImportValidationException("File data could not be imported")
 
         for variable in self.variables:
-            self.instances.append(Instances(column=variable.code, fileId=file_id))
+            self.instances.append(
+                UnresolvedInstance(column=variable.code, fileId=file_id)
+            )
 
         return True
 
@@ -793,7 +797,7 @@ class Experiment(BaseModel, DataBaseEntity):
     product: Product = Field(alias="product")
     subunit: str = Field(default="", alias="subunit")
     variables: list[Variable] = Field(alias="variables")
-    instances: list[Instances] = Field(alias="instances")
+    instances: list[UnresolvedInstance] = Field(alias="instances")
     variant: Literal["run", "samples"] = Field(default="run", alias="variant")
 
     variant_details: Optional[dict] = None
@@ -837,14 +841,16 @@ class Experiment(BaseModel, DataBaseEntity):
 
         # if file_id is a tuple, it means that the file is a spectra file
         if isinstance(file_id, tuple):
-            self.instances.append(Instances(column="1", fileId=file_id[0]))
+            self.instances.append(UnresolvedInstance(column="1", fileId=file_id[0]))
             file_id = file_id[1]
 
         for variable in self.variables:
             # skip if variable is spectra
             if variable.variant == Variant.SPECTRUM:
                 continue
-            self.instances.append(Instances(column=variable.code, fileId=file_id))
+            self.instances.append(
+                UnresolvedInstance(column=variable.code, fileId=file_id)
+            )
 
         return True
 
@@ -872,10 +878,45 @@ class Experiment(BaseModel, DataBaseEntity):
 
         """
 
+        return self._get_data_inner(client, self.variables, self.instances)
+
+    def _get_data_inner(
+        self,
+        client: DataBaseClient,
+        variables: list[Variable],
+        instances: list[UnresolvedInstance],
+    ) -> dict:
+        """Internal method to get experiment data from the API given the instances source
+
+        Parameters
+        ----------
+        client : DataBaseClient
+            Client to use to get the data, i.e., DataHowLabClient
+        variables: list[Variable]
+            list of Variables, giving the source for the data
+        instances: list[UnresolvedInstance]
+            list of UnresolvedInstances, giving the source for the data
+
+        Returns
+        -------
+        Dictionary with the data where:
+            key: variable code
+            value: a dictionary with the data for the variable, with "timestamps" and "values" keys
+
+        Example:
+        --------
+        >>> client = DataHowLabClient()
+        >>> data = experiment.get_data(client)
+        >>> print(data)
+        {'var1': {"timestamps": [1,2,3], "values": [1.1, 2.2, 3.3]},
+        'var2': {"timestamps": [1,2,3], "values": [10.1, 12.2, 33.3]}}
+
+        """
+
         cache = {}
         experiment_data = {}
 
-        for instance, variable in zip(self.instances, self.variables):
+        for instance, variable in zip(instances, variables):
             if instance.fileId not in cache:
                 response = File.download(client._client, instance.fileId)
                 cache[instance.fileId] = response
