@@ -64,8 +64,8 @@
     systemPackages = system: let
       pkgs = nixpkgs.legacyPackages.${system};
 
-      # Use Python 3.12 from nixpkgs
-      python = pkgs.python312;
+      # Use Python 3.10 from nixpkgs
+      python = pkgs.python310;
 
       # Construct package set
       pythonSet =
@@ -113,6 +113,7 @@
             python
             pkgs.uv
             pkgs.ruff
+            pkgs.openapi-generator-cli
           ];
           env =
             {
@@ -129,6 +130,7 @@
           shellHook = ''
             unset PYTHONPATH
             uv sync
+            openapi-generator-cli generate -i openapi.json -g python -o dhl_api
             source .venv/bin/activate
           '';
         };
@@ -186,6 +188,7 @@
             packages = [
               virtualenv
               pkgs.uv
+              pkgs.openapi-generator-cli
             ];
 
             env = {
@@ -205,6 +208,9 @@
 
               # Get repository root using git. This is expanded at runtime by the editable `.pth` machinery.
               export REPO_ROOT=$(git rev-parse --show-toplevel)
+
+              # Generate DHL API sources
+              openapi-generator-cli generate -i openapi.json -g python -o dhl_api
             '';
           };
       }
