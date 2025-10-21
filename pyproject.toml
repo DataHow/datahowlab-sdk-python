@@ -3,11 +3,11 @@ name = "datahowlab-sdk"
 version = "0.4.0"
 description = "The DataHowLab SDK for Python"
 authors = [{ name = "DataHow", email = "feedback@datahow.ch" }]
-requires-python = ">=3.9, <=3.13"
+requires-python = ">=3.10, <=3.13"
 readme = "README.md"
 license = "Apache-2.0"
 dependencies = [
-  "datahowlab-api-types",
+  "openapi-client",
   "pydantic>=2.4.2,<3",
   "requests>=2.31.0,<3",
   "numpy>=1.26.1,<2",
@@ -31,10 +31,7 @@ dev = [
 ]
 
 [tool.uv.sources]
-dhl_api = { workspace = true }
-
-[tool.uv.workspace]
-members = ["dhl_api"]
+openapi-client = { path = "dhl_api" }
 
 [tool.hatch.build]
 packages = ["dhl_sdk"]

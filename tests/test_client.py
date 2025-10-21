@@ -2,211 +2,117 @@ import unittest
 from unittest.mock import patch, Mock
 
 from dhl_sdk.authentication import APIKeyAuthentication
-from dhl_sdk.client import Client, DataHowLabClient
-from dhl_sdk.entities import CultivationProject
+from dhl_sdk.client import DataHowLabClient
 
 
 class TestGetAPIKey(unittest.TestCase):
     @patch.dict("os.environ", {"DHL_API_KEY": "test_api_key"})
     def test_get_api_key_from_environment_variable(self):
-        # Test when API key is retrieved from environment variable
         auth_key = APIKeyAuthentication()
         headers = auth_key.get_headers()
         self.assertEqual(headers["Authorization"], "ApiKey test_api_key")
 
     @patch("os.environ.get", return_value=None)
     def test_no_api_key_provided(self, mock_env_get):
-        # Test when no API key is provided
         with self.assertRaises(KeyError):
             _ = APIKeyAuthentication()
 
 
-class TestClient(unittest.TestCase):
+class TestDataHowLabClient(unittest.TestCase):
     def setUp(self):
         self.auth_key = APIKeyAuthentication("test_auth_key")
         self.base_url = "https://test.com"
-        self.client = Client(self.auth_key, self.base_url)
 
-    def test_init(self):
-        self.assertEqual(self.client.auth_key, self.auth_key)
-
-    @patch("requests.Session.post")
-    def test_post(self, mock_post):
-        json_data = {"test_key": "test_value"}
-        self.client.post("api/test", json_data)
-        mock_post.assert_called_once_with(
-            "https://test.com/api/test",
-            headers={"Authorization": "ApiKey test_auth_key"},
-            json=json_data,
-        )
-
-    @patch("requests.Session.get")
-    def test_get(self, mock_get):
-        query_params = {"offset": "0", "limit": "10", "filterBy[name]": "foo%=bar"}
-
-        self.client.get("api/test", query_params)
-        mock_get.assert_called_once_with(
-            "https://test.com/api/test?offset=0&limit=10&filterBy[name]=foo%25%3Dbar",
-            headers={"Authorization": "ApiKey test_auth_key"},
-        )
-
-    @patch("dhl_sdk.client.Client.get")
-    def test_get_projects(self, mock_get):
-        offset = 0
-        name = "test_name"
-        unit_id = "test_unit_id"
-
-        with self.assertRaises(StopIteration):
-            # it should raise an error since there is no data
-            result = self.client.get_projects(
-                project_type=CultivationProject,
-                offset=offset,
-                name=name,
-                process_unit_id=unit_id,
-            )
-            _ = next(result)
-
-        mock_get.assert_called_once_with(
-            "api/db/v2/projects",
-            query_params={
-                "offset": "0",
-                "limit": "10",
-                "filterBy[name]": name,
-                "filterBy[processUnitId]": unit_id,
-                "archived": "false",
-                "sortBy[createdAt]": "desc",
-            },
-        )
-
-    @patch("dhl_sdk.client.Client.get")
-    def test_get_products(self, mock_get):
+    @patch("dhl_api.openapi_client.api.default_api.DefaultApi.get_projects_api_v1_projects_get")
+    def test_get_projects(self, mock_get_projects):
         client = DataHowLabClient(self.auth_key, self.base_url)
-        code = "TESTCODE"
 
-        with self.assertRaises(StopIteration):
-            # it should raise an error since there is no data
-            result = client.get_products(code=code)
-            _ = next(result)
+        mock_get_projects.return_value = []
 
-        mock_get.assert_called_once_with(
-            "api/db/v2/products",
-            query_params={
-                "offset": "0",
-                "limit": "10",
-                "filterBy[code]": code,
-                "archived": "false",
-                "sortBy[createdAt]": "desc",
-            },
-        )
+        result = list(client.get_projects())
 
-    @patch("dhl_sdk.client.Client.get")
-    def test_get_recipes(self, mock_get):
+        self.assertEqual(len(result), 0)
+        mock_get_projects.assert_called_once_with(skip=0, limit=10, search=None, process_unit=None, process_format=None)
+
+    @patch("dhl_api.openapi_client.api.default_api.DefaultApi.get_projects_api_v1_projects_get")
+    def test_get_projects_with_filters(self, mock_get_projects):
         client = DataHowLabClient(self.auth_key, self.base_url)
-        name = "test name"
-        product = Mock(
-            id="test_product_id",
-            code="test_product_code",
-            name="test_product_name",
-        )
 
-        with self.assertRaises(StopIteration):
-            # it should raise an error since there is no data
-            result = client.get_recipes(name=name, product=product)
-            _ = next(result)
+        mock_project = Mock()
+        mock_project.name = "Test Project"
+        mock_get_projects.return_value = [mock_project]
 
-        mock_get.assert_called_once_with(
-            "api/db/v2/recipes",
-            query_params={
-                "offset": "0",
-                "limit": "10",
-                "filterBy[name]": name,
-                "filterBy[product._id]": product.id,
-                "archived": "false",
-                "sortBy[createdAt]": "desc",
-            },
-        )
+        result = list(client.get_projects(name="Test Project", process_unit="BR"))
 
-    @patch("dhl_sdk.client.Client.get")
-    def test_get_experiments(self, mock_get):
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].name, "Test Project")
+        mock_get_projects.assert_called_once_with(skip=0, limit=10, search="Test Project", process_unit=["BR"], process_format=None)
+
+    @patch("dhl_api.openapi_client.api.default_api.DefaultApi.get_products_api_v1_products_get")
+    def test_get_products(self, mock_get_products):
         client = DataHowLabClient(self.auth_key, self.base_url)
-        name = "test name"
-        product = Mock(
-            id="test_product_id",
-            code="test_product_code",
-            name="test_product_name",
-        )
 
-        with self.assertRaises(StopIteration):
-            # it should raise an error since there is no data
-            result = client.get_experiments(name=name, product=product)
-            _ = next(result)
+        mock_product = Mock()
+        mock_product.code = "TESTCODE"
+        mock_get_products.return_value = [mock_product]
 
-        mock_get.assert_called_once_with(
-            "api/db/v2/experiments",
-            query_params={
-                "offset": "0",
-                "limit": "10",
-                "search": "test name",
-                "filterBy[product._id]": product.id,
-                "archived": "false",
-                "sortBy[createdAt]": "desc",
-            },
-        )
+        result = list(client.get_products(code="TESTCODE"))
 
-    @patch("dhl_sdk.client.Client.get")
-    def test_get_experiments_noproduct(self, mock_get):
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].code, "TESTCODE")
+        mock_get_products.assert_called_once_with(skip=0, limit=10, code="TESTCODE", process_unit=None, process_format=None)
+
+    @patch("dhl_api.openapi_client.api.default_api.DefaultApi.get_experiments_api_v1_experiments_get")
+    def test_get_experiments(self, mock_get_experiments):
         client = DataHowLabClient(self.auth_key, self.base_url)
-        name = "test name"
 
-        with self.assertRaises(StopIteration):
-            # it should raise an error since there is no data
-            result = client.get_experiments(name=name)
-            _ = next(result)
+        mock_experiment = Mock()
+        mock_experiment.name = "Test Experiment"
+        mock_get_experiments.return_value = [mock_experiment]
 
-        mock_get.assert_called_once_with(
-            "api/db/v2/experiments",
-            query_params={
-                "offset": "0",
-                "limit": "10",
-                "search": "test name",
-                "archived": "false",
-                "sortBy[createdAt]": "desc",
-            },
-        )
+        result = list(client.get_experiments(name="Test"))
 
-    @patch("dhl_sdk.client.Client.get")
-    def test_get_variables(self, mock_get):
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].name, "Test Experiment")
+        mock_get_experiments.assert_called_once_with(skip=0, limit=10, search="Test", process_unit=None, process_format=None)
+
+    @patch("dhl_api.openapi_client.api.default_api.DefaultApi.get_variables_api_v1_variables_get")
+    def test_get_variables(self, mock_get_variables):
         client = DataHowLabClient(self.auth_key, self.base_url)
-        code = "TESTCODE"
-        variable_type = "categorical"
-        group = "X Variables"
 
-        mock_variable_group_codes = Mock()
-        mock_variable_group_codes.get_variable_group_codes.return_value = {"X Variables": ("959606c1-44bc-4657-82ff-70c247be14aa", "X")}
+        mock_variable = Mock()
+        mock_variable.code = "VAR1"
+        mock_get_variables.return_value = [mock_variable]
 
-        with patch("dhl_sdk.client.VariableGroupCodes", return_value=mock_variable_group_codes):
-            with self.assertRaises(ValueError):
-                # it should raise an error since variable_type is not valid
-                result = client.get_variables(code=code, variable_type="test", group=group)
+        result = list(client.get_variables(code="VAR1"))
 
-            with self.assertRaises(ValueError):
-                # it should raise an error since group is not valid
-                result = client.get_variables(code=code, variable_type=variable_type, group="test")
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0].code, "VAR1")
+        mock_get_variables.assert_called_once_with(skip=0, limit=10, code="VAR1", variant=None)
 
-            with self.assertRaises(StopIteration):
-                # it should raise an error since there is no data
-                result = client.get_variables(code=code, variable_type=variable_type, group=group)
-                _ = next(result)
+    @patch("dhl_api.openapi_client.api.default_api.DefaultApi.get_variables_api_v1_variables_get")
+    def test_get_variables_with_variant(self, mock_get_variables):
+        client = DataHowLabClient(self.auth_key, self.base_url)
 
-            mock_get.assert_called_once_with(
-                "api/db/v2/variables",
-                query_params={
-                    "offset": "0",
-                    "limit": "10",
-                    "filterBy[code]": code,
-                    "filterBy[variant]": variable_type,
-                    "filterBy[group._id]": "959606c1-44bc-4657-82ff-70c247be14aa",
-                    "archived": "false",
-                    "sortBy[createdAt]": "desc",
-                },
-            )
+        mock_get_variables.return_value = []
+
+        result = list(client.get_variables(variant="NUMERIC"))
+
+        self.assertEqual(len(result), 0)
+        mock_get_variables.assert_called_once_with(skip=0, limit=10, code=None, variant=["NUMERIC"])
+
+    @patch("dhl_api.openapi_client.api.default_api.DefaultApi.get_projects_api_v1_projects_get")
+    def test_pagination(self, mock_get_projects):
+        client = DataHowLabClient(self.auth_key, self.base_url)
+
+        mock_page1 = [Mock(id=f"proj-{i}") for i in range(10)]
+        mock_page2 = [Mock(id=f"proj-{i}") for i in range(10, 15)]
+
+        mock_get_projects.side_effect = [mock_page1, mock_page2]
+
+        result = list(client.get_projects())
+
+        self.assertEqual(len(result), 15)
+        self.assertEqual(mock_get_projects.call_count, 2)
+        mock_get_projects.assert_any_call(skip=0, limit=10, search=None, process_unit=None, process_format=None)
+        mock_get_projects.assert_any_call(skip=10, limit=10, search=None, process_unit=None, process_format=None)

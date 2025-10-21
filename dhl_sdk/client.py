@@ -1,252 +1,44 @@
-# pylint: disable=too-few-public-methods, too-many-arguments
+"""Client for the DHL API
 
-"""Client for the DHL SpectraHow API
-
-This module defines the `Client` and `DataHowLabClient` classes,
-which are used to interact with the DataHowLab's API.
+This module defines the `DataHowLabClient` class,
+which is used to interact with the DataHowLab's API.
 
 Classes:
-    - Client: provides a base implementation for making HTTP requests to the API
     - DataHowLabClient: main client to interact with the DHL API
 """
 
-from typing import Any, Dict, Literal, Optional, Type, TypeVar, cast
-from urllib.parse import urlencode
+from typing import TYPE_CHECKING, Iterator, List, Optional, Union
 
-import requests
-from requests import Response
-from requests.adapters import HTTPAdapter
-import urllib3
-from urllib3.util.retry import Retry
+from openapi_client.models.numeric_details_output import NumericDetailsOutput
+from openapi_client.models.variable import Variable
+from openapi_client.models.variantdetails import Variantdetails
 
-from dhl_sdk._constants import PROCESS_FORMAT_MAP, PROCESS_UNIT_MAP
-from dhl_sdk._utils import VariableGroupCodes, urljoin
 from dhl_sdk.authentication import APIKeyAuthentication
-from dhl_sdk.crud import Result
-from dhl_sdk.db_entities import DataBaseEntity, Experiment, Product, Recipe
-from dhl_sdk.entities import CultivationProject, Project, SpectraProject, Variable
 
-PROJECT_TYPE_MAP = {
-    "04a324da-13a5-470b-94a1-bda6ac87bb86": CultivationProject,
-    "373c173a-1f23-4e56-874e-90ca4702ec0d": SpectraProject,
-}
+if TYPE_CHECKING:
+    from dhl_api.openapi_client.models.process_format_code import ProcessFormatCode
+    from dhl_api.openapi_client.models.process_unit_code import ProcessUnitCode
+    from dhl_api.openapi_client.models.variable_variant import VariableVariant
 
-
-T = TypeVar("T", bound=Project)
-
-
-class Client:
-    """
-    A client for interacting with the DataHowLab API.
-    """
-
-    def __init__(self, auth_key: APIKeyAuthentication, base_url: str, verify: bool = True) -> None:
-        """
-        Parameters
-        ----------
-        auth_key : APIKeyAuthentication
-            An instance of the APIKeyAuthentication class containing the user's API key.
-        base_url : str
-            The URL address of the datahowlab application
-
-        Returns
-        -------
-        NoneType
-            None
-        """
-        self.auth_key = auth_key
-        self.base_url = base_url
-        self.session = Client._get_retry_requester(total_retries=5, backoff_factor=1, verify=verify)
-
-    @staticmethod
-    def _get_retry_requester(total_retries: int = 5, backoff_factor: int = 1, verify: bool = True):
-        """Get the http session with retry strategy"""
-        status_forcelist = [429, 502, 503, 504]
-        allowed_methods = ["DELETE", "GET", "HEAD", "OPTIONS", "PUT", "TRACE"]
-
-        retry_strategy = Retry(
-            total=total_retries,
-            backoff_factor=backoff_factor,
-            status_forcelist=status_forcelist,
-            allowed_methods=allowed_methods,
-        )
-
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        http = requests.Session()
-        http.verify = verify
-        http.mount("https://", adapter)
-        http.mount("http://", adapter)
-
-        return http
-
-    def post(self, path: str, json_data: Any) -> Response:
-        """
-        Sends a POST request to the specified
-        URL with the provided JSON data as a dict.
-
-        Parameters
-        ----------
-        path : str
-            The extension to send the POST request to.
-        json_data : any
-            The JSON data to include in the POST request.
-
-        Returns
-        -------
-        requests.Response
-            The response object returned by the server.
-
-        Raises
-        ------
-        requests.exceptions.HTTPError
-            If the server returns a non-2xx status code.
-        """
-        path = urljoin(self.base_url, path)
-        auth_headers = self.auth_key.get_headers()
-
-        response = self.session.post(path, headers=auth_headers, json=json_data)
-        response.raise_for_status()
-
-        return response
-
-    def get(self, path: str, query_params: Optional[Dict[str, str]] = None) -> Response:
-        """
-        Sends a GET request to the specified URL
-        with the given query parameters.
-
-        Parameters:
-        -----------
-        path : str
-            The URL to send the GET request to.
-        query_params : dict, optional
-            A dictionary of query parameters to include in the request.
-
-        Returns:
-        --------
-        response : requests.Response
-            The response object returned by the GET request.
-
-        Raises:
-        -------
-        requests.exceptions.HTTPError
-            If the server returns a non-2xx status code.
-        """
-        if query_params:
-            query_string = urlencode(query_params, doseq=True, safe="[]")
-            path = f"{path}?{query_string}"
-
-        path = urljoin(self.base_url, path)
-        auth_headers = self.auth_key.get_headers()
-
-        response = self.session.get(path, headers=auth_headers)
-        response.raise_for_status()
-
-        return response
-
-    def put(
-        self,
-        path: str,
-        data: Any,
-        content_type: str = "application/json",
-    ) -> Response:
-        """
-        Sends a PUT request to the specified
-        URL with the provided JSON data as a dict.
-
-        Parameters
-        ----------
-        path : str
-            The extension to send the PUT request to.
-        data : any
-            The data to include in the PUT request.
-        content_type : Literal["application/json", "text/csv"], optional
-            The content type of the data to be sent, by default "application/json"
-
-        Returns
-        -------
-        requests.Response
-            The response object returned by the server.
-
-        Raises
-        ------
-        requests.exceptions.HTTPError
-            If the server returns a non-2xx status code.
-        """
-        path = urljoin(self.base_url, path)
-        req_headers = self.auth_key.get_headers()
-
-        if content_type == "application/json":
-            response = self.session.put(path, headers=req_headers, json=data)
-            response.raise_for_status()
-
-        elif content_type == "text/csv":
-            req_headers["Content-type"] = content_type
-            response = self.session.put(path, headers=req_headers, data=data)
-            response.raise_for_status()
-        else:
-            raise NotImplementedError(f"Put request with given content type '{content_type}' not implemented yet.")
-
-        return response
-
-    def get_projects(
-        self,
-        project_type: Type[T],
-        name: Optional[str] = None,
-        process_unit_id: Optional[str] = None,
-        process_format_id: Optional[str] = None,
-        offset: int = 0,
-    ) -> Result[T]:
-        """Retrieve the available projects for the user
-
-        Parameters
-        ----------
-        project_type : T, optional
-            The type of project to retrieve, by default Project
-        name : str, optional
-            Filter projects by name, by default None
-        process_unit_id : str, optional
-            Filter projects by process unit ID, by default None
-        process_format_id : str, optional
-            Filter projects by process format ID, by default None
-        offset : int, optional
-            The offset for pagination, must be a non-negative integer, by default 0
-
-        Returns
-        -------
-        Result
-            An Iterable object containing the retrieved project data
-        """
-
-        if not (isinstance(offset, int) and offset >= 0):
-            raise ValueError("offset must be a non-negative integer")
-
-        filter_params = {
-            key: value
-            for key, value in {
-                "filterBy[processUnitId]": process_unit_id,
-                "filterBy[processFormatId]": process_format_id,
-                "filterBy[name]": name,
-            }.items()
-            if value is not None
-        }
-
-        projects = project_type.requests(self)
-
-        result = Result(
-            offset=offset,
-            limit=10,
-            query_params=filter_params,
-            requests=projects,
-        )
-
-        return result
+try:
+    from dhl_api.openapi_client.api.default_api import DefaultApi
+    from dhl_api.openapi_client.api_client import ApiClient
+    from dhl_api.openapi_client.configuration import Configuration
+    from dhl_api.openapi_client.models.process_format_code import ProcessFormatCode
+    from dhl_api.openapi_client.models.process_unit_code import ProcessUnitCode
+    from dhl_api.openapi_client.models.variable_variant import VariableVariant
+except ImportError:
+    DefaultApi = None
+    ApiClient = None
+    Configuration = None
+    ProcessFormatCode = None
+    ProcessUnitCode = None
+    VariableVariant = None
 
 
 class DataHowLabClient:
     """
-
     Client for the DHL API
-
     """
 
     def __init__(
@@ -273,238 +65,171 @@ class DataHowLabClient:
         NoneType
             None
         """
+        if DefaultApi is None or ApiClient is None or Configuration is None:
+            raise ImportError("OpenAPI client not available. Please regenerate the API client using openapi-generator-cli.")
 
-        if isinstance(verify_ssl, bool) and not verify_ssl:
-            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        config = Configuration(host=base_url.rstrip("/"))
+        config.verify_ssl = verify_ssl
+        config.api_key = {"APIKeyHeader": auth_key.api_key}
+        config.api_key_prefix = {"APIKeyHeader": "ApiKey"}
 
-        self._client = Client(auth_key, base_url, verify=verify_ssl)
+        api_client = ApiClient(configuration=config)
+        self._api = DefaultApi(api_client=api_client)
+
+    def _paginate(self, getter_func, **kwargs) -> Iterator:
+        """Internal method to handle pagination"""
+        skip = 0
+        limit = 10
+
+        while True:
+            items = getter_func(skip=skip, limit=limit, **kwargs)
+
+            if not items:
+                break
+
+            for item in items:
+                yield item
+
+            if len(items) < limit:
+                break
+
+            skip += limit
 
     def get_projects(
         self,
         name: Optional[str] = None,
-        process_format: Literal["mammalian", "microbial"] = "mammalian",
-        project_type: Literal["cultivation", "spectroscopy"] = "cultivation",
-    ) -> Result[Project]:
+        process_unit: Optional[Union["ProcessUnitCode", List["ProcessUnitCode"]]] = None,
+        process_format: Optional[Union["ProcessFormatCode", List["ProcessFormatCode"]]] = None,
+    ) -> Iterator:
         """
         Retrieves an iterable of projects from the DHL API.
 
         Parameters
         ----------
         name : str, optional
-            A string to filter projects by name.
-        offset : int, optional
-            An integer representing the number of projects to skip before returning results.
-        process_format: Literal["mammalian", "microbial"], optional
-            The process format of the project, by default "mammalian"
-        project_type : Literal["cultivation", "spectroscopy"], optional
-            The type of project to retrieve, by default 'cultivation'
+            A string to filter projects by name (free-text search).
+        process_unit : ProcessUnitCode | List[ProcessUnitCode], optional
+            The process unit code(s) to filter by (e.g., ProcessUnitCode.BR for Bioreactor).
+            Available values: BR (Bioreactor), SPC (Spectroscopy), IVT, PTC.
+            Can be a single value or list. Defaults to all units if not specified.
+        process_format : ProcessFormatCode | List[ProcessFormatCode], optional
+            The process format code(s) to filter by (e.g., ProcessFormatCode.MAMMAL).
+            Available values: MAMMAL, MICRO, MRNA.
+            Can be a single value or list. Defaults to all formats if not specified.
 
         Returns
         -------
-        Result
-            An Iterable object containing the retrieved projects
+        Iterator
+            An iterator of Project objects
         """
+        process_unit_list = [process_unit] if process_unit and not isinstance(process_unit, list) else process_unit
+        process_format_list = [process_format] if process_format and not isinstance(process_format, list) else process_format
 
-        if project_type not in PROCESS_UNIT_MAP:
-            raise ValueError(f"Type must be one of {list(PROCESS_UNIT_MAP.keys())}, but got '{{project_type}}'")
-
-        if process_format not in PROCESS_FORMAT_MAP:
-            raise ValueError(
-                f"Format must be one of {list(PROCESS_FORMAT_MAP.keys())}, "
-                "but got '{process_format}'"
-            )
-
-        unit_id = PROCESS_UNIT_MAP[project_type]
-        format_id = PROCESS_FORMAT_MAP[process_format]
-
-        project_class = PROJECT_TYPE_MAP[unit_id]
-
-        return self._client.get_projects(
-            name=name,
-            process_unit_id=unit_id,
-            process_format_id=format_id,
-            project_type=project_class,
+        return self._paginate(
+            self._api.get_projects_api_v1_projects_get,
+            search=name,
+            process_unit=process_unit_list,
+            process_format=process_format_list,
         )
 
     def get_experiments(
         self,
         name: Optional[str] = None,
-        product: Optional[Product] = None,
-    ) -> Result[Experiment]:
+        process_unit: Optional[Union["ProcessUnitCode", List["ProcessUnitCode"]]] = None,
+        process_format: Optional[Union["ProcessFormatCode", List["ProcessFormatCode"]]] = None,
+    ) -> Iterator:
         """Retrieve the available experiments for the user
 
         Parameters
         ----------
         name : str, optional
-            Search in DB by name, by default None
-        product : Product, optional
-            Filter experiments by product, by default None
+            Search in DB by name (free-text search), by default None
+        process_unit : ProcessUnitCode | List[ProcessUnitCode], optional
+            The process unit code(s) to filter by (e.g., ProcessUnitCode.BR for Bioreactor).
+            Available values: BR (Bioreactor), SPC (Spectroscopy), IVT, PTC.
+            Can be a single value or list. Defaults to all units if not specified.
+        process_format : ProcessFormatCode | List[ProcessFormatCode], optional
+            The process format code(s) to filter by (e.g., ProcessFormatCode.MAMMAL).
+            Available values: MAMMAL, MICRO, MRNA.
+            Can be a single value or list. Defaults to all formats if not specified.
 
         Returns
         -------
-        Result
-            An Iterable object containing the retrieved experiment data
+        Iterator
+            An iterator of Experiment objects
         """
+        process_unit_list = [process_unit] if process_unit and not isinstance(process_unit, list) else process_unit
+        process_format_list = [process_format] if process_format and not isinstance(process_format, list) else process_format
 
-        product_id = product.id if product else None
-
-        filter_params = {
-            key: value
-            for key, value in {
-                "search": name,
-                "filterBy[product._id]": product_id,
-            }.items()
-            if value is not None
-        }
-
-        experiments = Experiment.requests(self._client)
-        result = Result[Experiment](
-            offset=0,
-            limit=10,
-            query_params=filter_params,
-            requests=experiments,
+        return self._paginate(
+            self._api.get_experiments_api_v1_experiments_get,
+            search=name,
+            process_unit=process_unit_list,
+            process_format=process_format_list,
         )
 
-        return result
-
-    def get_products(self, code: Optional[str] = None) -> Result[Product]:
+    def get_products(
+        self,
+        code: Optional[str] = None,
+        name: Optional[str] = None,
+        process_format: Optional[Union["ProcessFormatCode", List["ProcessFormatCode"]]] = None,
+    ) -> Iterator:
         """Retrieve the available products for the user
 
         Parameters
         ----------
         code : str, optional
             Filter products by code, by default None
+        name : str, optional
+            Search products by name (free-text search), by default None
+        process_format : ProcessFormatCode | List[ProcessFormatCode], optional
+            The process format code(s) to filter by (e.g., ProcessFormatCode.MAMMAL).
+            Available values: MAMMAL, MICRO, MRNA.
+            Can be a single value or list. Defaults to all formats if not specified.
 
         Returns
         -------
-        Result
-            An Iterable object containing the retrieved product data
+        Iterator
+            An iterator of Product objects
         """
+        process_format_list = [process_format] if process_format and not isinstance(process_format, list) else process_format
 
-        filter_params = {"filterBy[code]": code} if code else None
-
-        projects = Product.requests(self._client)
-        result = Result[Product](
-            offset=0,
-            limit=10,
-            query_params=filter_params,
-            requests=projects,
+        return self._paginate(
+            self._api.get_products_api_v1_products_get,
+            code=code,
+            search=name,
+            process_format=process_format_list,
         )
-
-        return result
 
     def get_variables(
         self,
         code: Optional[str] = None,
-        group: Optional[str] = None,
-        variable_type: Optional[Literal["categorical", "flow", "logical", "numeric"]] = None,
-    ) -> Result[Variable]:
+        name: Optional[str] = None,
+        variant: Optional[Union["VariableVariant", List["VariableVariant"]]] = None,
+    ) -> Iterator:
         """Retrieve the available variables for the user
 
         Parameters
         ----------
         code : str, optional
             Filter variables by code, by default None
-
-        Returns
-        -------
-        Result
-            An Iterable object containing the retrieved variable data
-        """
-
-        if variable_type and variable_type not in [
-            "categorical",
-            "flow",
-            "logical",
-            "numeric",
-        ]:
-            raise ValueError(
-                (f"Variable Type must be one of: 'categorical', 'flow', 'logical', 'numeric'. instead, it got '{variable_type}'")
-            )
-
-        if group:
-            variable_group_codes = VariableGroupCodes(self._client).get_variable_group_codes()
-
-            if group not in variable_group_codes:
-                raise ValueError(f"Variable Group must be one of: {list(variable_group_codes.keys())}. instead, it got '{group}'")
-
-            group_id = variable_group_codes[group][0]
-        else:
-            group_id = None
-
-        filter_params = {
-            key: value
-            for key, value in {
-                "filterBy[code]": code,
-                "filterBy[variant]": variable_type,
-                "filterBy[group._id]": group_id,
-            }.items()
-            if value is not None
-        }
-
-        projects = Variable.requests(self._client)
-        result = Result[Variable](
-            offset=0,
-            limit=10,
-            query_params=filter_params,
-            requests=projects,
-        )
-
-        return result
-
-    def get_recipes(self, name: Optional[str] = None, product: Optional[Product] = None) -> Result[Recipe]:
-        """Retrieve the available recipes for the user
-
-        Parameters
-        ----------
         name : str, optional
-            Filter recipes by name, by default None
-        product : Product, optional
-            Filter recipes by product, by default None
+            Search variables by name (free-text search), by default None
+        variant : VariableVariant | List[VariableVariant], optional
+            Filter by variable variant type(s) (e.g., VariableVariant.NUMERIC).
+            Available values: FLOW, NUMERIC, CATEGORICAL, LOGICAL, SPECTRUM.
+            Can be a single value or list. Defaults to all variants if not specified.
 
         Returns
         -------
-        Result
-            An Iterable object containing the retrieved recipe data
+        Iterator
+            An iterator of Variable objects
         """
+        variant_list = [variant] if variant and not isinstance(variant, list) else variant
 
-        product_id = product.id if product else None
-
-        filter_params = {
-            key: value
-            for key, value in {
-                "filterBy[name]": name,
-                "filterBy[product._id]": product_id,
-            }.items()
-            if value is not None
-        }
-
-        recipes = Recipe.requests(self._client)
-        result = Result[Recipe](
-            offset=0,
-            limit=10,
-            query_params=filter_params,
-            requests=recipes,
+        return self._paginate(
+            self._api.get_variables_api_v1_variables_get,
+            code=code,
+            search=name,
+            variant=variant_list,
         )
-
-        return result
-
-    def create(self, entity: DataBaseEntity) -> Optional[DataBaseEntity]:
-        """Create a new entity in the database
-
-        Parameters
-        ----------
-        entity : DataBaseEntity
-            The entity to create in the database.
-            This can be a Product, Variable, Recipe or Experiment.
-
-        Returns
-        -------
-        DataBaseEntity
-            The created entity
-        """
-
-        if entity.validate_import(self._client):
-            return entity.requests(self._client).create(entity.create_request_body())
-
-        return entity

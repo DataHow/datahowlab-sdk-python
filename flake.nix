@@ -129,8 +129,11 @@
             };
           shellHook = ''
             unset PYTHONPATH
-            uv sync
             openapi-generator-cli generate -i openapi.json -g python -o dhl_api
+            if [ ! -d .venv ]; then
+              uv venv
+            fi
+            uv sync
             source .venv/bin/activate
           '';
         };
