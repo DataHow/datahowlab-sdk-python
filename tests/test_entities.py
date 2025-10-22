@@ -1,5 +1,3 @@
-import unittest
-
 # TODO: This entire test file tests deprecated functionality from dhl_sdk._deprecated.entities
 # The following functionality needs to be evaluated for migration or deprecation:
 #

@@ -1,5 +1,3 @@
-import unittest
-
 # TODO: This entire test file tests deprecated functionality from dhl_sdk.db_entities and dhl_sdk.crud
 # The following functionality needs to be restored using the OpenAPI client (dhl_api):
 #

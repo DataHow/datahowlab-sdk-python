@@ -7,35 +7,34 @@ Classes:
     - DataHowLabClient: main client to interact with the DHL API
 """
 
-from typing import TYPE_CHECKING, Iterator, List, Optional, Union
+from collections.abc import Callable, Iterator
+from typing import TYPE_CHECKING, Any, TypeVar, final
 
-from openapi_client.models.numeric_details_output import NumericDetailsOutput
-from openapi_client.models.variable import Variable
-from openapi_client.models.variantdetails import Variantdetails
 
 from dhl_sdk.authentication import APIKeyAuthentication
 
 if TYPE_CHECKING:
-    from dhl_api.openapi_client.models.process_format_code import ProcessFormatCode
-    from dhl_api.openapi_client.models.process_unit_code import ProcessUnitCode
-    from dhl_api.openapi_client.models.variable_variant import VariableVariant
+    from openapi_client.models.experiment import Experiment
+    from openapi_client.models.process_format_code import ProcessFormatCode
+    from openapi_client.models.process_unit_code import ProcessUnitCode
+    from openapi_client.models.product import Product
+    from openapi_client.models.project import Project
+    from openapi_client.models.variable import Variable
+    from openapi_client.models.variable_variant import VariableVariant
+
+T = TypeVar("T")
 
 try:
-    from dhl_api.openapi_client.api.default_api import DefaultApi
-    from dhl_api.openapi_client.api_client import ApiClient
-    from dhl_api.openapi_client.configuration import Configuration
-    from dhl_api.openapi_client.models.process_format_code import ProcessFormatCode
-    from dhl_api.openapi_client.models.process_unit_code import ProcessUnitCode
-    from dhl_api.openapi_client.models.variable_variant import VariableVariant
+    from openapi_client.api.default_api import DefaultApi
+    from openapi_client.api_client import ApiClient
+    from openapi_client.configuration import Configuration
 except ImportError:
-    DefaultApi = None
-    ApiClient = None
-    Configuration = None
-    ProcessFormatCode = None
-    ProcessUnitCode = None
-    VariableVariant = None
+    DefaultApi = None  # type: ignore[assignment, misc]
+    ApiClient = None  # type: ignore[assignment, misc]
+    Configuration = None  # type: ignore[assignment, misc]
 
 
+@final
 class DataHowLabClient:
     """
     Client for the DHL API
@@ -45,7 +44,7 @@ class DataHowLabClient:
         self,
         auth_key: APIKeyAuthentication,
         base_url: str,
-        verify_ssl: Union[bool, str] = True,
+        verify_ssl: bool | str = True,
     ):
         """
         Parameters
@@ -54,7 +53,7 @@ class DataHowLabClient:
             An instance of the APIKeyAuthentication class containing the user's API key.
         base_url : str
             The URL address of the datahowlab application
-        verify_ssl : Union[bool, str], optional
+        verify_ssl : bool | str, optional
             Either a boolean, in which case it controls whether we verify the server's
             TLS certificate, or a string, in which case it must be a path to a CA bundle
             to use. For more info check the documentation for python's requests.request.
@@ -69,14 +68,14 @@ class DataHowLabClient:
             raise ImportError("OpenAPI client not available. Please regenerate the API client using openapi-generator-cli.")
 
         config = Configuration(host=base_url.rstrip("/"))
-        config.verify_ssl = verify_ssl
+        config.verify_ssl = bool(verify_ssl)
         config.api_key = {"APIKeyHeader": auth_key.api_key}
         config.api_key_prefix = {"APIKeyHeader": "ApiKey"}
 
         api_client = ApiClient(configuration=config)
         self._api = DefaultApi(api_client=api_client)
 
-    def _paginate(self, getter_func, **kwargs) -> Iterator:
+    def _paginate(self, getter_func: Callable[..., list[T]], **kwargs: Any) -> Iterator[T]:  # pyright: ignore[reportAny, reportExplicitAny]
         """Internal method to handle pagination"""
         skip = 0
         limit = 10
@@ -97,10 +96,10 @@ class DataHowLabClient:
 
     def get_projects(
         self,
-        name: Optional[str] = None,
-        process_unit: Optional[Union["ProcessUnitCode", List["ProcessUnitCode"]]] = None,
-        process_format: Optional[Union["ProcessFormatCode", List["ProcessFormatCode"]]] = None,
-    ) -> Iterator:
+        name: str | None = None,
+        process_unit: "ProcessUnitCode | list[ProcessUnitCode] | None" = None,
+        process_format: "ProcessFormatCode | list[ProcessFormatCode] | None" = None,
+    ) -> "Iterator[Project]":
         """
         Retrieves an iterable of projects from the DHL API.
 
@@ -134,10 +133,10 @@ class DataHowLabClient:
 
     def get_experiments(
         self,
-        name: Optional[str] = None,
-        process_unit: Optional[Union["ProcessUnitCode", List["ProcessUnitCode"]]] = None,
-        process_format: Optional[Union["ProcessFormatCode", List["ProcessFormatCode"]]] = None,
-    ) -> Iterator:
+        name: str | None = None,
+        process_unit: "ProcessUnitCode | list[ProcessUnitCode] | None" = None,
+        process_format: "ProcessFormatCode | list[ProcessFormatCode] | None" = None,
+    ) -> "Iterator[Experiment]":
         """Retrieve the available experiments for the user
 
         Parameters
@@ -170,10 +169,10 @@ class DataHowLabClient:
 
     def get_products(
         self,
-        code: Optional[str] = None,
-        name: Optional[str] = None,
-        process_format: Optional[Union["ProcessFormatCode", List["ProcessFormatCode"]]] = None,
-    ) -> Iterator:
+        code: str | None = None,
+        name: str | None = None,
+        process_format: "ProcessFormatCode | list[ProcessFormatCode] | None" = None,  # type: ignore[name-defined]
+    ) -> "Iterator[Product]":
         """Retrieve the available products for the user
 
         Parameters
@@ -203,10 +202,10 @@ class DataHowLabClient:
 
     def get_variables(
         self,
-        code: Optional[str] = None,
-        name: Optional[str] = None,
-        variant: Optional[Union["VariableVariant", List["VariableVariant"]]] = None,
-    ) -> Iterator:
+        code: str | None = None,
+        name: str | None = None,
+        variant: "VariableVariant | list[VariableVariant] | None" = None,  # type: ignore[name-defined]
+    ) -> "Iterator[Variable]":
         """Retrieve the available variables for the user
 
         Parameters

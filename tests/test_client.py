@@ -19,11 +19,14 @@ class TestGetAPIKey(unittest.TestCase):
 
 
 class TestDataHowLabClient(unittest.TestCase):
+    auth_key: APIKeyAuthentication
+    base_url: str
+
     def setUp(self):
         self.auth_key = APIKeyAuthentication("test_auth_key")
         self.base_url = "https://test.com"
 
-    @patch("dhl_api.openapi_client.api.default_api.DefaultApi.get_projects_api_v1_projects_get")
+    @patch("openapi_client.api.default_api.DefaultApi.get_projects_api_v1_projects_get")
     def test_get_projects(self, mock_get_projects):
         client = DataHowLabClient(self.auth_key, self.base_url)
 
@@ -34,7 +37,7 @@ class TestDataHowLabClient(unittest.TestCase):
         self.assertEqual(len(result), 0)
         mock_get_projects.assert_called_once_with(skip=0, limit=10, search=None, process_unit=None, process_format=None)
 
-    @patch("dhl_api.openapi_client.api.default_api.DefaultApi.get_projects_api_v1_projects_get")
+    @patch("openapi_client.api.default_api.DefaultApi.get_projects_api_v1_projects_get")
     def test_get_projects_with_filters(self, mock_get_projects):
         client = DataHowLabClient(self.auth_key, self.base_url)
 
@@ -48,7 +51,7 @@ class TestDataHowLabClient(unittest.TestCase):
         self.assertEqual(result[0].name, "Test Project")
         mock_get_projects.assert_called_once_with(skip=0, limit=10, search="Test Project", process_unit=["BR"], process_format=None)
 
-    @patch("dhl_api.openapi_client.api.default_api.DefaultApi.get_products_api_v1_products_get")
+    @patch("openapi_client.api.default_api.DefaultApi.get_products_api_v1_products_get")
     def test_get_products(self, mock_get_products):
         client = DataHowLabClient(self.auth_key, self.base_url)
 
@@ -60,9 +63,9 @@ class TestDataHowLabClient(unittest.TestCase):
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].code, "TESTCODE")
-        mock_get_products.assert_called_once_with(skip=0, limit=10, code="TESTCODE", process_unit=None, process_format=None)
+        mock_get_products.assert_called_once_with(skip=0, limit=10, code="TESTCODE", search=None, process_format=None)
 
-    @patch("dhl_api.openapi_client.api.default_api.DefaultApi.get_experiments_api_v1_experiments_get")
+    @patch("openapi_client.api.default_api.DefaultApi.get_experiments_api_v1_experiments_get")
     def test_get_experiments(self, mock_get_experiments):
         client = DataHowLabClient(self.auth_key, self.base_url)
 
@@ -76,7 +79,7 @@ class TestDataHowLabClient(unittest.TestCase):
         self.assertEqual(result[0].name, "Test Experiment")
         mock_get_experiments.assert_called_once_with(skip=0, limit=10, search="Test", process_unit=None, process_format=None)
 
-    @patch("dhl_api.openapi_client.api.default_api.DefaultApi.get_variables_api_v1_variables_get")
+    @patch("openapi_client.api.default_api.DefaultApi.get_variables_api_v1_variables_get")
     def test_get_variables(self, mock_get_variables):
         client = DataHowLabClient(self.auth_key, self.base_url)
 
@@ -88,9 +91,9 @@ class TestDataHowLabClient(unittest.TestCase):
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].code, "VAR1")
-        mock_get_variables.assert_called_once_with(skip=0, limit=10, code="VAR1", variant=None)
+        mock_get_variables.assert_called_once_with(skip=0, limit=10, code="VAR1", search=None, variant=None)
 
-    @patch("dhl_api.openapi_client.api.default_api.DefaultApi.get_variables_api_v1_variables_get")
+    @patch("openapi_client.api.default_api.DefaultApi.get_variables_api_v1_variables_get")
     def test_get_variables_with_variant(self, mock_get_variables):
         client = DataHowLabClient(self.auth_key, self.base_url)
 
@@ -99,9 +102,9 @@ class TestDataHowLabClient(unittest.TestCase):
         result = list(client.get_variables(variant="NUMERIC"))
 
         self.assertEqual(len(result), 0)
-        mock_get_variables.assert_called_once_with(skip=0, limit=10, code=None, variant=["NUMERIC"])
+        mock_get_variables.assert_called_once_with(skip=0, limit=10, code=None, search=None, variant=["NUMERIC"])
 
-    @patch("dhl_api.openapi_client.api.default_api.DefaultApi.get_projects_api_v1_projects_get")
+    @patch("openapi_client.api.default_api.DefaultApi.get_projects_api_v1_projects_get")
     def test_pagination(self, mock_get_projects):
         client = DataHowLabClient(self.auth_key, self.base_url)
 

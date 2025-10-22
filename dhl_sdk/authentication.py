@@ -25,7 +25,6 @@ Usage:
 """
 
 import os
-from typing import Optional
 
 
 class APIKeyAuthentication:
@@ -36,7 +35,9 @@ class APIKeyAuthentication:
     environment variable 'DHL_API_KEY'.
     """
 
-    def __init__(self, api_key: Optional[str] = None):
+    api_key: str
+
+    def __init__(self, api_key: str | None = None):
         """
         Parameters
         ----------

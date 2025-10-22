@@ -129,7 +129,7 @@
             };
           shellHook = ''
             unset PYTHONPATH
-            openapi-generator-cli generate -i openapi.json -g python -o dhl_api
+            openapi-generator-cli generate -i openapi.json -g python -o dhl_api --global-property=apiTests=false,modelTests=false
             if [ ! -d .venv ]; then
               uv venv
             fi
@@ -213,7 +213,7 @@
               export REPO_ROOT=$(git rev-parse --show-toplevel)
 
               # Generate DHL API sources
-              openapi-generator-cli generate -i openapi.json -g python -o dhl_api
+              openapi-generator-cli generate -i openapi.json -g python -o dhl_api --global-property=apiTests=false,modelTests=false
             '';
           };
       }
