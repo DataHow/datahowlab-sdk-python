@@ -64,7 +64,7 @@ class TestClient(unittest.TestCase):
                 project_type=CultivationProject,
                 offset=offset,
                 name=name,
-                unit_id=unit_id,
+                process_unit_id=unit_id,
             )
             _ = next(result)
 

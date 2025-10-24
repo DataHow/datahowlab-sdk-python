@@ -21,6 +21,7 @@ from dhl_sdk._spectra_utils import (
 )
 from dhl_sdk._utils import (
     Metadata,
+    OnlyId,
     PipelineStage,
     PredictionPipelineRequest,
     PredictionRequestConfig,
@@ -281,6 +282,11 @@ class CultivationPropagationPreprocessor(Preprocessor):
 
         # validate inputs with model variables
         _validate_propagation_with_variables(self.timestamps, self.inputs, self.model)
+
+        # validate inputs and timestamps with prediction config
+        _validate_propagation_prediction_config(
+            self.timestamps, self.inputs, self.prediction_config
+        )
         return True
 
     def format(self) -> list[dict]:
@@ -305,10 +311,21 @@ class CultivationPropagationPreprocessor(Preprocessor):
             for variable in model_variables:
                 if variable.matches_key(key):
                     formatted_inputs[variable.id] = {}
-                    formatted_inputs[variable.id]["values"] = value
-                    formatted_inputs[variable.id]["timestamps"] = self.timestamps[
-                        : len(value)
-                    ]
+                    if groupcode_is_propagation_prediction(variable.group.code):
+                        formatted_inputs[variable.id]["values"] = [value[0]]
+                        formatted_inputs[variable.id]["timestamps"] = [
+                            self.timestamps[self.prediction_config.starting_index]
+                        ]
+                        formatted_inputs[variable.id]["steps"] = [
+                            self.prediction_config.starting_index
+                        ]
+                    else:
+                        formatted_inputs[variable.id]["values"] = value
+                        formatted_inputs[variable.id]["timestamps"] = self.timestamps[
+                            : len(value)
+                        ]
+                        formatted_inputs[variable.id]["steps"] = list(range(len(value)))
+
                     break
 
         for variable in input_variables:
@@ -320,19 +337,20 @@ class CultivationPropagationPreprocessor(Preprocessor):
         json_data = PredictionPipelineRequest(
             instances=instances,
             metadata=Metadata(
-                variables=[{"id": var.id} for var in input_variables],
+                variables=[OnlyId(id=var.id) for var in input_variables],
             ),
             stages=[PipelineStage(config=self.prediction_config, id=self.model.id)],
         ).model_dump(
             by_alias=True,
             exclude_none=True,
             include={
-                "instances": {"__all__": {"__all__": {"timestamps", "values"}}},
+                "instances": {
+                    "__all__": {"__all__": {"timestamps", "values", "steps"}}
+                },
                 "metadata": True,
                 "stages": True,
             },
         )
-
         return [json_data]
 
 
@@ -432,7 +450,7 @@ class CultivationHistoricalPreprocessor(Preprocessor):
         json_data = PredictionPipelineRequest(
             instances=instances,
             metadata=Metadata(
-                variables=[{"id": var.id} for var in input_variables],
+                variables=[OnlyId(id=var.id) for var in input_variables],
             ),
             stages=[PipelineStage(config=self.prediction_config, id=self.model.id)],
         ).model_dump(
@@ -506,7 +524,6 @@ def _validate_upstream_timestamps(
     if timestamps[0] < 0:
         raise InvalidTimestampsException("Timestamps must be positive")
 
-    # Convert timestamps to seconds
     unit_factors = {
         "s": 1,
         "sec": 1,
@@ -720,6 +737,37 @@ def _validate_historical_with_variables(
                 )
 
 
+# pylint: disable=unused-argument
+def _validate_propagation_prediction_config(
+    timestamps: list[int],
+    inputs: dict[str, list],
+    prediction_config: PredictionRequestConfig,
+) -> None:
+    """
+    Validate the prediction config for propagation cultivation model prediction.
+
+    Parameters
+    ----------
+    timestamps : list[int]
+        List of timestamps for the prediction
+    inputs : dict[str, list]
+        A dictionary where keys are variable codes, and values are lists of inputs.
+    prediction_config: PredictionRequestConfig
+        Prediction configuration for the propagation model
+
+    Raises
+    ------
+    InvalidInputsException
+    """
+
+    # the starting index cannot be larger than the len(timestamps)
+    if prediction_config.starting_index >= len(timestamps):
+        raise InvalidInputsException(
+            "The starting index of the prediction cannot be larger than the length "
+            + "of the provided list of timestamps."
+        )
+
+
 def format_predictions(
     predictions: list[PredictionResponse], model: Model
 ) -> Predictions:
@@ -781,6 +829,11 @@ def groupcode_is_numeric(code: str):
         "W",
         "X",
     ]
+
+
+def groupcode_is_propagation_prediction(code: str):
+    """Check if the group is propagation prediction"""
+    return code in ["X"]
 
 
 def groupcode_is_output(code: str):

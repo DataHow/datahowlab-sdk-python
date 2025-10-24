@@ -69,10 +69,10 @@ class TestProductEntity(unittest.TestCase):
 
     def test_new_product(self):
         with self.assertRaises(NewEntityException) as ex:
-            product = Product.new("bigcodename", "name", "description")
+            product = Product.new("bigcodenamethatwillfail", "name", "description")
             self.assertEqual(
                 ex.exception.message,
-                "Product code must be from 1 to 6 characters long",
+                "Product code must be from 1 to 10 characters long",
             )
 
         product = Product.new("code", "name", "description")
@@ -84,7 +84,12 @@ class TestProductEntity(unittest.TestCase):
         product = Product.new("code", "name", "description")
         self.assertEqual(
             product.create_request_body(),
-            {"code": "code", "name": "name", "description": "description"},
+            {
+                "code": "code",
+                "name": "name",
+                "description": "description",
+                "processFormatId": "9c6b258f-6f07-4f18-aea3-e5e5bf703740",
+            },
         )
 
     def test_product_validation_success(self):
@@ -153,7 +158,7 @@ class TestProductRequests(unittest.TestCase):
     @patch("requests.Session.get")
     @patch("requests.Session.post")
     def test_client_create_product(self, mock_post, mock_get):
-        product = Product.new("code", "name", "description")
+        product = Product.new("code", "name", "description", "mammalian")
         client = DataHowLabClient(
             APIKeyAuthentication("test_auth_key"), "https://test.com"
         )
@@ -170,7 +175,40 @@ class TestProductRequests(unittest.TestCase):
         mock_post.assert_called_once_with(
             "https://test.com/api/db/v2/products",
             headers={"Authorization": "ApiKey test_auth_key"},
-            json={"code": "code", "name": "name", "description": "description"},
+            json={
+                "code": "code",
+                "name": "name",
+                "description": "description",
+                "processFormatId": "9c6b258f-6f07-4f18-aea3-e5e5bf703740",
+            },
+        )
+
+    @patch("requests.Session.get")
+    @patch("requests.Session.post")
+    def test_client_create_product_microbial(self, mock_post, mock_get):
+        product = Product.new("code", "name", "description", "microbial")
+        client = DataHowLabClient(
+            APIKeyAuthentication("test_auth_key"), "https://test.com"
+        )
+
+        mock_get.side_effect = [
+            Mock(headers={"x-total-count": "0"}),
+            Mock(headers={"x-total-count": "0"}),
+        ]
+
+        with patch.object(product._validator, "is_imported", return_value=False):
+            with self.assertRaises(ValidationError):
+                _ = client.create(product)
+
+        mock_post.assert_called_once_with(
+            "https://test.com/api/db/v2/products",
+            headers={"Authorization": "ApiKey test_auth_key"},
+            json={
+                "code": "code",
+                "name": "name",
+                "description": "description",
+                "processFormatId": "7478a11e-fc1a-4708-a034-248154cc039b",
+            },
         )
 
 
@@ -640,6 +678,8 @@ class TestExperimentsEntity(unittest.TestCase):
             {
                 "name": "exp name",
                 "description": "exp description",
+                "processFormatId": "9c6b258f-6f07-4f18-aea3-e5e5bf703740",
+                "processUnitId": "04a324da-13a5-470b-94a1-bda6ac87bb86",
                 "product": {"id": "prod-id"},
                 "variables": [{"id": "var1-id"}, {"id": "var2-id"}],
                 "subunit": "",

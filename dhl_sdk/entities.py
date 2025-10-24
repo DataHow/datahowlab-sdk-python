@@ -1,9 +1,11 @@
 # pylint: disable=no-member, arguments-differ
 # pylint: disable=unsubscriptable-object
+# pylint: disable=too-many-arguments
+
 """API Entities Module
 
 This module provides a comprehensive set of Pydantic models that represent
-multiple entities obtained from the API . 
+multiple entities obtained from the API .
 
 Classes:
     - Dataset: Represents a structure for datasets present in the models.
@@ -14,7 +16,14 @@ Classes:
 from abc import ABC, abstractmethod
 from typing import Literal, Optional, Type, Union
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    ValidationError,
+    model_validator,
+)
 
 from dhl_sdk._input_processing import (
     CultivationHistoricalPreprocessor,
@@ -24,6 +33,7 @@ from dhl_sdk._input_processing import (
     SpectraPreprocessor,
     format_predictions,
 )
+
 from dhl_sdk._constants import (
     DATASETS_URL,
     MODELS_URL,
@@ -38,7 +48,7 @@ from dhl_sdk._utils import (
     get_id_list,
 )
 from dhl_sdk.crud import Client, CRUDClient, DataBaseClient, Result
-from dhl_sdk.db_entities import Experiment, Variable
+from dhl_sdk.db_entities import Experiment, Variable, UnresolvedInstance
 from dhl_sdk.exceptions import (
     InvalidInputsException,
     ModelPredictionException,
@@ -55,12 +65,14 @@ class Dataset(BaseModel):
     description: str = Field(alias="description")
     variables: list[Variable] = Field(alias="variables")
     experiments: list[Experiment] = Field(default=[], alias="experiments")
+    instances: list[list[UnresolvedInstance]] = Field(alias="instances")
     _client: Client = PrivateAttr()
 
     def __init__(self, **data):
         super().__init__(**data)
         self._client = data["client"]
 
+    # pylint: disable=protected-access
     def get_data(self, client: DataBaseClient) -> list[dict]:
         """Get the data from the experiments
 
@@ -74,8 +86,10 @@ class Dataset(BaseModel):
         """
 
         run_data = []
-        for experiment in self.experiments:
-            data = experiment.get_data(client=client)
+        for i, experiment in enumerate(self.experiments):
+            data = experiment._get_data_inner(
+                client=client, variables=self.variables, instances=self.instances[i]
+            )
             run_data.append(data)
 
         return run_data
@@ -86,16 +100,42 @@ class Dataset(BaseModel):
         def unpack_entity(source: str, entity):
             unpacked = []
 
-            for i, info in enumerate(data[source]):
-                try:
-                    entity_id = info["id"]
-                except KeyError as err:
-                    raise KeyError(
-                        f"The {source} index {i} does not contain an id"
-                    ) from err
+            items = data.get(source, [])
+            for i, info in enumerate(items):
+                # 1) Already a model instance
+                if isinstance(info, entity):
+                    unpacked.append(info)
+                    continue
 
-                var = entity.requests(data["client"]).get(entity_id)
-                unpacked.append(var)
+                # 2) Dict with only {"id": ...} → fetch directly (skip validation)
+                if isinstance(info, dict) and set(info.keys()) == {"id"}:
+                    obj = entity.requests(data["client"]).get(info["id"])
+                    unpacked.append(obj)
+                    continue
+
+                # 3) Try full entity validation
+                try:
+                    validated = entity.model_validate(info)
+                    unpacked.append(validated)
+                    continue
+                except (
+                    ValidationError,
+                    KeyError,
+                    AttributeError,
+                    TypeError,
+                    ValueError,
+                ) as exc:
+                    # 4) Fallback: fetch by id from a dict payload
+                    if isinstance(info, dict) and "id" in info:
+                        obj = entity.requests(data["client"]).get(info["id"])
+                        unpacked.append(obj)
+                        continue
+
+                    # 5) Otherwise, this item is invalid
+                    raise ValueError(
+                        f"Unsupported item at {source}[{i}] — expected a valid {entity.__name__} "
+                        f"payload, an instance, or a dict with an 'id'. Got {type(info).__name__}."
+                    ) from exc
 
             data[source] = unpacked
 
@@ -188,10 +228,10 @@ class Model(BaseModel, ABC):
         return format_predictions(predictions, model=self)
 
     @property
-    def model_variables(self) -> dict:
+    def model_variables(self) -> list[Variable]:
         """List of the variables used in the model"""
 
-        model_variables = []
+        model_variables: list[Variable] = []
         groups: dict = self.config["groups"]
 
         for variable in self.dataset.variables:
@@ -213,7 +253,6 @@ class Model(BaseModel, ABC):
 
     def get_model_variables_codes(self) -> list[str]:
         """Get the codes of the variables used in the model"""
-
         return [variable.code for variable in self.model_variables]
 
     @abstractmethod
@@ -233,11 +272,14 @@ class PredictionConfig(BaseModel):
         expected to fall, with a specified level of certainty, i.e, setting it to 80%
         corresponds to capturing the range between the 10th and 90th percentiles
         of the model's output. Must be a value between 1 and 99, by default 80
+    starting_index: int, optional
+        The index of the timestamp after which the prediction will commence
     """
 
     model_config = ConfigDict(protected_namespaces=())
 
     model_confidence: float = Field(default=80.0, ge=1.0, le=99.0)
+    starting_index: int = Field(default=0, ge=0)
 
 
 class SpectraModel(Model):
@@ -393,7 +435,6 @@ class CultivationPropagationModel(CultivationModel):
             details on the configuration parameters.
             See also: `PredictionConfig`
 
-
         Returns:
         --------
         Dictionary with predictions where:
@@ -417,7 +458,8 @@ class CultivationPropagationModel(CultivationModel):
             )
 
         prediction_config = PredictionRequestConfig.new(
-            model_confidence=config.model_confidence
+            model_confidence=config.model_confidence,
+            starting_index=config.starting_index,
         )
 
         data_processing_strategy = CultivationPropagationPreprocessor(
@@ -558,6 +600,7 @@ class Project(BaseModel, ABC):
     name: str = Field(alias="name")
     description: str = Field(alias="description")
     process_unit_id: str = Field(alias="processUnitId")
+    process_format_id: Optional[str] = Field(alias="processFormatId", default=None)
     _client: Client = PrivateAttr()
 
     def get_datasets(self, name: Optional[str] = None) -> Result[Dataset]:
@@ -700,7 +743,7 @@ class CultivationProject(Project):
 
         # get templateIds for propagation models
         template_query_params = {
-            "filterByTag[type]": model_type,
+            "filterBy[type]": model_type,
             "archived": "any",
         }
         template_list = self._client.get(TEMPLATES_URL, template_query_params).json()

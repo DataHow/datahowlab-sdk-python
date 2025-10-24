@@ -49,14 +49,19 @@ class Instance(BaseModel):
     timestamps: Optional[list[int]] = Field(default=None, alias="timestamps")
     sample_id: Optional[list[str]] = Field(default=None, alias="sampleId")
     steps: Optional[list[int]] = Field(default=None, alias="steps")
-    values: Union[list[float], list[list[float]]]
+    values: Union[
+        list[Optional[float]],
+        list[Optional[bool]],
+        list[Optional[str]],
+        list[Optional[list[float]]],
+    ]
 
-    high_values: Optional[Union[list[float], list[list[float]]]] = Field(
-        default=None, alias="highValues"
-    )
-    low_values: Optional[Union[list[float], list[list[float]]]] = Field(
-        default=None, alias="lowValues"
-    )
+    high_values: Optional[
+        Union[list[Optional[float]], list[list[Optional[float]]]]
+    ] = Field(default=None, alias="highValues")
+    low_values: Optional[
+        Union[list[Optional[float]], list[list[Optional[float]]]]
+    ] = Field(default=None, alias="lowValues")
 
     @model_validator(mode="after")
     def generate_sample_ids(self):
@@ -134,7 +139,7 @@ class PredictionPipelineRequest(BaseModel):
 
     instances: list[list[Optional[Instance]]]
     metadata: Metadata
-    stages: list[PipelineStage] = None
+    stages: list[PipelineStage]
 
 
 class PredictionResponse(BaseModel):

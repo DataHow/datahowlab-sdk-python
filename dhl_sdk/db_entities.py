@@ -2,7 +2,7 @@
 
 This module provides a comprehensive set of Pydantic models that represent
 multiple entities that can be downloaded or uploaded to the DataBase through
-the API . 
+the API .
 
 Classes:
     - Experiment: Represents a structure for experiments
@@ -11,7 +11,7 @@ Classes:
     - Product: Represents a structure for products present in experiments and recipes
     """
 
-# pylint: disable=no-member, protected-access
+# pylint: disable=no-member, protected-access, too-many-arguments, too-many-lines
 
 import copy
 import csv
@@ -26,10 +26,13 @@ from requests import Response
 from dhl_sdk._constants import (
     EXPERIMENTS_URL,
     FILES_URL,
+    PROCESS_FORMAT_MAP,
+    PROCESS_UNIT_MAP,
     PRODUCTS_URL,
     RECIPES_URL,
     VARIABLES_URL,
 )
+
 from dhl_sdk._utils import VariableGroupCodes
 from dhl_sdk.crud import Client, CRUDClient, DataBaseClient
 from dhl_sdk.exceptions import (
@@ -503,6 +506,9 @@ class Product(BaseModel, DataBaseEntity):
     code: str = Field(alias="code")
     name: str = Field(alias="name")
     description: Optional[str] = Field(default="", alias="description")
+    process_format_id: Optional[str] = Field(
+        default=PROCESS_FORMAT_MAP["mammalian"], alias="processFormatId"
+    )
 
     _validator: AbstractValidator = PrivateAttr(ProductValidator())
 
@@ -519,6 +525,7 @@ class Product(BaseModel, DataBaseEntity):
         code: str,
         name: str,
         description: Optional[str] = "",
+        process_format: Literal["mammalian", "microbial"] = "mammalian",
     ) -> "Product":
         """Create a new Product from user input
 
@@ -530,6 +537,8 @@ class Product(BaseModel, DataBaseEntity):
             Name of the product
         description : Optional[str]
             Description of the product
+        process_format : Literal["mammalian", "microbial"]
+            The format of the process. Defaults to "mammalian".
 
         Returns
         -------
@@ -547,10 +556,21 @@ class Product(BaseModel, DataBaseEntity):
         if name == "":
             raise NewEntityException("Product name cannot be empty")
 
-        if len(code) > 6:
-            raise NewEntityException("Product code must be from 1 to 6 characters long")
+        if len(code) > 10:
+            raise NewEntityException(
+                "Product code must be from 1 to 10 characters long"
+            )
 
-        return Product(code=code, name=name, description=description)
+        if process_format not in PROCESS_FORMAT_MAP:
+            raise ValueError(
+                f"Format must be one of {list(PROCESS_FORMAT_MAP.keys())}, "
+                "but got '{process_format}'"
+            )
+        format_id = PROCESS_FORMAT_MAP[process_format]
+
+        return Product(
+            code=code, name=name, description=description, processFormatId=format_id
+        )
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["Product"]:
@@ -589,8 +609,8 @@ class File(BaseModel):
                 variables=variables, data=self._data
             )
             return True
-        else:
-            return False
+
+        return False
 
     def create_request_body(self) -> dict:
         """Create request body for creating a file"""
@@ -637,7 +657,7 @@ class File(BaseModel):
         return client.get(f"{FILES_URL}/{file_id}/data")
 
 
-class Instances(BaseModel):
+class UnresolvedInstance(BaseModel):
     """Pydantic model for Unresolved Instances"""
 
     column: str = Field(alias="column")
@@ -650,10 +670,12 @@ class Recipe(BaseModel, DataBaseEntity):
     id: Optional[str] = Field(default=None, alias="id")
     name: str = Field(alias="name")
     description: Optional[str] = Field(default=None, alias="description")
+    process_unit_id: Optional[str] = Field(default=None, alias="processUnitId")
+    process_format_id: Optional[str] = Field(default=None, alias="processFormatId")
     product: Product = Field(alias="product")
     duration: Optional[int] = Field(default=None, alias="duration")
     variables: list[Variable] = Field(alias="variables")
-    instances: list[Instances] = Field(alias="instances")
+    instances: list[UnresolvedInstance] = Field(alias="instances")
     file_data: Optional[File] = None
 
     _validator: AbstractValidator = PrivateAttr(ExperimentValidator())
@@ -689,7 +711,9 @@ class Recipe(BaseModel, DataBaseEntity):
             raise ImportValidationException("File data could not be imported")
 
         for variable in self.variables:
-            self.instances.append(Instances(column=variable.code, fileId=file_id))
+            self.instances.append(
+                UnresolvedInstance(column=variable.code, fileId=file_id)
+            )
 
         return True
 
@@ -764,10 +788,16 @@ class Experiment(BaseModel, DataBaseEntity):
     id: Optional[str] = Field(default=None, alias="id")
     name: str = Field(alias="name")
     description: str = Field(alias="description")
+    process_unit_id: Optional[str] = Field(
+        default=PROCESS_UNIT_MAP["cultivation"], alias="processUnitId"
+    )
+    process_format_id: Optional[str] = Field(
+        default=PROCESS_FORMAT_MAP["mammalian"], alias="processFormatId"
+    )
     product: Product = Field(alias="product")
     subunit: str = Field(default="", alias="subunit")
     variables: list[Variable] = Field(alias="variables")
-    instances: list[Instances] = Field(alias="instances")
+    instances: list[UnresolvedInstance] = Field(alias="instances")
     variant: Literal["run", "samples"] = Field(default="run", alias="variant")
 
     variant_details: Optional[dict] = None
@@ -783,6 +813,8 @@ class Experiment(BaseModel, DataBaseEntity):
                 "name": True,
                 "description": True,
                 "subunit": True,
+                "process_format_id": True,
+                "process_unit_id": True,
                 "product": {"id"},
                 "variables": {"__all__": {"id"}},
                 "instances": {"__all__": {"column", "fileId"}},
@@ -809,14 +841,16 @@ class Experiment(BaseModel, DataBaseEntity):
 
         # if file_id is a tuple, it means that the file is a spectra file
         if isinstance(file_id, tuple):
-            self.instances.append(Instances(column="1", fileId=file_id[0]))
+            self.instances.append(UnresolvedInstance(column="1", fileId=file_id[0]))
             file_id = file_id[1]
 
         for variable in self.variables:
             # skip if variable is spectra
             if variable.variant == Variant.SPECTRUM:
                 continue
-            self.instances.append(Instances(column=variable.code, fileId=file_id))
+            self.instances.append(
+                UnresolvedInstance(column=variable.code, fileId=file_id)
+            )
 
         return True
 
@@ -844,10 +878,45 @@ class Experiment(BaseModel, DataBaseEntity):
 
         """
 
+        return self._get_data_inner(client, self.variables, self.instances)
+
+    def _get_data_inner(
+        self,
+        client: DataBaseClient,
+        variables: list[Variable],
+        instances: list[UnresolvedInstance],
+    ) -> dict:
+        """Internal method to get experiment data from the API given the instances source
+
+        Parameters
+        ----------
+        client : DataBaseClient
+            Client to use to get the data, i.e., DataHowLabClient
+        variables: list[Variable]
+            list of Variables, giving the source for the data
+        instances: list[UnresolvedInstance]
+            list of UnresolvedInstances, giving the source for the data
+
+        Returns
+        -------
+        Dictionary with the data where:
+            key: variable code
+            value: a dictionary with the data for the variable, with "timestamps" and "values" keys
+
+        Example:
+        --------
+        >>> client = DataHowLabClient()
+        >>> data = experiment.get_data(client)
+        >>> print(data)
+        {'var1': {"timestamps": [1,2,3], "values": [1.1, 2.2, 3.3]},
+        'var2': {"timestamps": [1,2,3], "values": [10.1, 12.2, 33.3]}}
+
+        """
+
         cache = {}
         experiment_data = {}
 
-        for instance, variable in zip(self.instances, self.variables):
+        for instance, variable in zip(instances, variables):
             if instance.fileId not in cache:
                 response = File.download(client._client, instance.fileId)
                 cache[instance.fileId] = response
@@ -862,7 +931,7 @@ class Experiment(BaseModel, DataBaseEntity):
                 experiment_data[variable.code] = data["timeseries"][instance.column]
 
             elif response.headers["content-type"] == "text/csv":
-                csv_data = [row for row in csv.reader(StringIO(response.text))]
+                csv_data = list(csv.reader(StringIO(response.text)))
 
                 ids = [row[0] for row in csv_data]
                 if self.variant == "run":  # run variant
@@ -887,6 +956,7 @@ class Experiment(BaseModel, DataBaseEntity):
         product: Product,
         variables: list[Variable],
         data: dict,
+        process_format: Literal["mammalian", "microbial"] = "mammalian",
         data_type: Literal["run", "spectra"] = "run",
         variant: Literal["run", "samples"] = "run",
         start_time: Optional[str] = None,
@@ -911,6 +981,8 @@ class Experiment(BaseModel, DataBaseEntity):
             The data must be a dictionary with the variable codes as keys.
             For "spectra" variant, the data must be a dictionary with the variable codes
                 as keys and a list of lists of values as values.
+        process_format : Literal["mammalian", "microbial"]
+            The format of the process. Defaults to "mammalian".
         variant : Literal["run", "samples"]
             Variant of the experiment ("run" or "samples").
             "run" is for time series data and "samples" is for sampled data
@@ -934,6 +1006,13 @@ class Experiment(BaseModel, DataBaseEntity):
             raise NewEntityException(
                 "Start time and end time must be provided for 'run' variant"
             )
+
+        if process_format not in PROCESS_FORMAT_MAP:
+            raise ValueError(
+                f"Format must be one of {list(PROCESS_FORMAT_MAP.keys())}, "
+                "but got '{process_format}'"
+            )
+        format_id = PROCESS_FORMAT_MAP[process_format]
 
         file_validator_class = (
             SpectraFileValidator if data_type == "spectra" else ExperimentFileValidator
@@ -959,6 +1038,7 @@ class Experiment(BaseModel, DataBaseEntity):
             name=name,
             description=description,
             product=product,
+            processFormatId=format_id,
             variables=variables,
             instances=[],
             file_data=file,
