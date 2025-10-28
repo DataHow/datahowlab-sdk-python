@@ -1,4 +1,4 @@
-from typing import Any
+from typing import cast
 
 from openapi_client.models.model import Model as OpenAPIModel
 from openapi_client.models.model_status import ModelStatus
@@ -23,8 +23,8 @@ VAR_4_ID = "866d2f26-5c6f-4194-856d-514f9fd22cf8"
 VAR_5_ID = "a561d4a8-0424-4d69-a5cf-187ad219c527"
 
 
-def create_model(**overrides: Any) -> OpenAPIModel:
-    defaults = {
+def create_model(**overrides: str | int | ModelStatus | ModelType) -> OpenAPIModel:
+    defaults: dict[str, object] = {
         "id": MODEL_ID,
         "name": "Test Model",
         "description": "Test model description",
@@ -35,36 +35,36 @@ def create_model(**overrides: Any) -> OpenAPIModel:
         "variant": "Stepwise GP",
         "stepSize": 3600,
     }
-    defaults.update(overrides)
-    return OpenAPIModel(**defaults)
+    defaults.update(cast(dict[str, object], overrides))
+    return OpenAPIModel.model_construct(**defaults)
 
 
-def create_project(**overrides: Any) -> OpenAPIProject:
-    defaults = {
+def create_project(**overrides: str | ProcessUnitCode | ProcessFormatCode) -> OpenAPIProject:
+    defaults: dict[str, object] = {
         "id": PROJECT_ID,
         "name": "Test Project",
         "description": "Test project description",
         "processUnit": ProcessUnitCode.BR,
         "processFormat": ProcessFormatCode.MAMMAL,
     }
-    defaults.update(overrides)
-    return OpenAPIProject(**defaults)
+    defaults.update(cast(dict[str, object], overrides))
+    return OpenAPIProject.model_construct(**defaults)
 
 
-def create_product(**overrides: Any) -> OpenAPIProduct:
-    defaults = {
+def create_product(**overrides: str | ProcessFormatCode) -> OpenAPIProduct:
+    defaults: dict[str, object] = {
         "id": PRODUCT_ID,
         "name": "Test Product",
         "code": "TEST_PROD",
         "description": "Test product description",
         "processFormat": ProcessFormatCode.MAMMAL,
     }
-    defaults.update(overrides)
-    return OpenAPIProduct(**defaults)
+    defaults.update(cast(dict[str, object], overrides))
+    return OpenAPIProduct.model_construct(**defaults)
 
 
-def create_variable(**overrides: Any) -> OpenAPIVariable:
-    defaults = {
+def create_variable(**overrides: str | Variantdetails) -> OpenAPIVariable:
+    defaults: dict[str, object] = {
         "id": VARIABLE_ID,
         "name": "Test Variable",
         "code": "TEST_VAR",
@@ -73,5 +73,5 @@ def create_variable(**overrides: Any) -> OpenAPIVariable:
         "group": "Process",
         "variantDetails": Variantdetails(),
     }
-    defaults.update(overrides)
-    return OpenAPIVariable(**defaults)
+    defaults.update(cast(dict[str, object], overrides))
+    return OpenAPIVariable.model_construct(**defaults)

@@ -39,17 +39,21 @@ class TestDataHowLabClient(unittest.TestCase):
 
     @patch("openapi_client.api.default_api.DefaultApi.get_projects_api_v1_projects_get")
     def test_get_projects_with_filters(self, mock_get_projects):
+        from openapi_client.models.process_unit_code import ProcessUnitCode
+
         client = DataHowLabClient(self.auth_key, self.base_url)
 
         mock_project = Mock()
         mock_project.name = "Test Project"
         mock_get_projects.return_value = [mock_project]
 
-        result = list(client.get_projects(name="Test Project", process_unit="BR"))
+        result = list(client.get_projects(search="Test Project", process_unit=ProcessUnitCode.BR))
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].name, "Test Project")
-        mock_get_projects.assert_called_once_with(skip=0, limit=10, search="Test Project", process_unit=["BR"], process_format=None)
+        mock_get_projects.assert_called_once_with(
+            skip=0, limit=10, search="Test Project", process_unit=[ProcessUnitCode.BR], process_format=None
+        )
 
     @patch("openapi_client.api.default_api.DefaultApi.get_products_api_v1_products_get")
     def test_get_products(self, mock_get_products):
@@ -59,24 +63,24 @@ class TestDataHowLabClient(unittest.TestCase):
         mock_product.code = "TESTCODE"
         mock_get_products.return_value = [mock_product]
 
-        result = list(client.get_products(code="TESTCODE"))
+        result = list(client.get_products())
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].code, "TESTCODE")
-        mock_get_products.assert_called_once_with(skip=0, limit=10, code="TESTCODE", search=None, process_format=None)
+        mock_get_products.assert_called_once_with(skip=0, limit=10, search=None, process_format=None)
 
     @patch("openapi_client.api.default_api.DefaultApi.get_experiments_api_v1_experiments_get")
     def test_get_experiments(self, mock_get_experiments):
         client = DataHowLabClient(self.auth_key, self.base_url)
 
         mock_experiment = Mock()
-        mock_experiment.name = "Test Experiment"
+        mock_experiment.id = "test-experiment-id"
         mock_get_experiments.return_value = [mock_experiment]
 
-        result = list(client.get_experiments(name="Test"))
+        result = list(client.get_experiments(search="Test"))
 
         self.assertEqual(len(result), 1)
-        self.assertEqual(result[0].name, "Test Experiment")
+        self.assertEqual(result[0].id, "test-experiment-id")
         mock_get_experiments.assert_called_once_with(skip=0, limit=10, search="Test", process_unit=None, process_format=None)
 
     @patch("openapi_client.api.default_api.DefaultApi.get_variables_api_v1_variables_get")
@@ -87,22 +91,11 @@ class TestDataHowLabClient(unittest.TestCase):
         mock_variable.code = "VAR1"
         mock_get_variables.return_value = [mock_variable]
 
-        result = list(client.get_variables(code="VAR1"))
+        result = list(client.get_variables())
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].code, "VAR1")
-        mock_get_variables.assert_called_once_with(skip=0, limit=10, code="VAR1", search=None, variant=None)
-
-    @patch("openapi_client.api.default_api.DefaultApi.get_variables_api_v1_variables_get")
-    def test_get_variables_with_variant(self, mock_get_variables):
-        client = DataHowLabClient(self.auth_key, self.base_url)
-
-        mock_get_variables.return_value = []
-
-        result = list(client.get_variables(variant="NUMERIC"))
-
-        self.assertEqual(len(result), 0)
-        mock_get_variables.assert_called_once_with(skip=0, limit=10, code=None, search=None, variant=["NUMERIC"])
+        mock_get_variables.assert_called_once_with(skip=0, limit=10, search=None)
 
     @patch("openapi_client.api.default_api.DefaultApi.get_projects_api_v1_projects_get")
     def test_pagination(self, mock_get_projects):

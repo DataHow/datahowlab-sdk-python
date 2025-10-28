@@ -2,12 +2,15 @@ import unittest
 from unittest.mock import Mock
 
 from openapi_client.models.process_format_code import ProcessFormatCode
+from openapi_client.models.product import Product as OpenAPIProduct
 
 from dhl_sdk.entities.product import Product, ProductRequest
 from tests.entities._fixtures import create_product, VAR_1_ID, VAR_2_ID
 
 
 class TestProduct(unittest.TestCase):
+    api_product: OpenAPIProduct
+
     def setUp(self):
         self.api_product = create_product(
             id="prod-123",
@@ -48,7 +51,7 @@ class TestProduct(unittest.TestCase):
     def test_variable_data_property_none(self):
         product = Product(self.api_product)
         result = product.variable_data
-        self.assertIsNone(result)
+        self.assertEqual(result, {})
 
     def test_variable_data_property_with_data(self):
         self.api_product.variable_data = {VAR_1_ID: {"type": "scalar", "value": 5.5}}
@@ -71,7 +74,7 @@ class TestProduct(unittest.TestCase):
 
     def test_tags_property_none(self):
         product = Product(self.api_product)
-        self.assertIsNone(product.tags)
+        self.assertEqual(product.tags, {})
 
     def test_tags_property_dict(self):
         self.api_product.tags = {"key": "value"}
@@ -197,7 +200,3 @@ class TestProductRequest(unittest.TestCase):
         self.assertIsNotNone(product.variable_data)
         self.assertIn(VAR_1_ID, product.variable_data)
         mock_api.create_product_api_v1_products_post.assert_called_once()
-
-
-if __name__ == "__main__":
-    unittest.main()

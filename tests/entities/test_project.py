@@ -1,11 +1,20 @@
 import unittest
 from unittest.mock import Mock
+from typing import TYPE_CHECKING
+
+from openapi_client.models.project import Project as OpenAPIProject
 
 from dhl_sdk.entities.project import Project
 from tests.entities._fixtures import create_model, create_project
 
+if TYPE_CHECKING:
+    from openapi_client.api.default_api import DefaultApi
+
 
 class TestProject(unittest.TestCase):
+    api_project: OpenAPIProject
+    mock_api: "DefaultApi"
+
     def setUp(self):
         self.api_project = create_project(id="proj-123", name="Test Project", description="A test project")
         self.mock_api = Mock()
@@ -75,7 +84,3 @@ class TestProject(unittest.TestCase):
 
         self.assertEqual(len(models), 15)
         self.assertEqual(self.mock_api.get_models_api_v1_projects_project_id_models_get.call_count, 2)
-
-
-if __name__ == "__main__":
-    unittest.main()

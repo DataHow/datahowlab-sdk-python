@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import Mock
 
+from openapi_client.models.variable import Variable as OpenAPIVariable
 from openapi_client.models.variantdetails1 import Variantdetails1
 
 from dhl_sdk.entities.variable import Variable, VariableRequest
@@ -8,6 +9,8 @@ from tests.entities._fixtures import create_variable
 
 
 class TestVariable(unittest.TestCase):
+    api_variable: OpenAPIVariable
+
     def setUp(self):
         self.api_variable = create_variable(
             id="var-123",
@@ -140,7 +143,3 @@ class TestVariableRequest(unittest.TestCase):
         self.assertEqual(variable.id, "var-456")
         self.assertEqual(variable.name, "Created Variable")
         mock_api.create_variable_api_v1_variables_post.assert_called_once()
-
-
-if __name__ == "__main__":
-    unittest.main()

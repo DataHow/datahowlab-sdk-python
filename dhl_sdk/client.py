@@ -7,10 +7,11 @@ Classes:
     - DataHowLabClient: main client to interact with the DHL API
 """
 
-from collections.abc import Callable, Iterator
-from typing import TYPE_CHECKING, Any, TypeVar, final
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, final
 
 
+from dhl_sdk._utils import paginate
 from dhl_sdk.authentication import APIKeyAuthentication
 
 if TYPE_CHECKING:
@@ -20,9 +21,7 @@ if TYPE_CHECKING:
     from openapi_client.models.product import Product
     from openapi_client.models.project import Project
     from openapi_client.models.variable import Variable
-    from openapi_client.models.variable_variant import VariableVariant
 
-T = TypeVar("T")
 
 try:
     from openapi_client.api.default_api import DefaultApi
@@ -75,28 +74,9 @@ class DataHowLabClient:
         api_client = ApiClient(configuration=config)
         self._api = DefaultApi(api_client=api_client)
 
-    def _paginate(self, getter_func: Callable[..., list[T]], **kwargs: Any) -> Iterator[T]:  # pyright: ignore[reportAny, reportExplicitAny]
-        """Internal method to handle pagination"""
-        skip = 0
-        limit = 10
-
-        while True:
-            items = getter_func(skip=skip, limit=limit, **kwargs)
-
-            if not items:
-                break
-
-            for item in items:
-                yield item
-
-            if len(items) < limit:
-                break
-
-            skip += limit
-
     def get_projects(
         self,
-        name: str | None = None,
+        search: str | None = None,
         process_unit: "ProcessUnitCode | list[ProcessUnitCode] | None" = None,
         process_format: "ProcessFormatCode | list[ProcessFormatCode] | None" = None,
     ) -> "Iterator[Project]":
@@ -105,13 +85,13 @@ class DataHowLabClient:
 
         Parameters
         ----------
-        name : str, optional
-            A string to filter projects by name (free-text search).
-        process_unit : ProcessUnitCode | List[ProcessUnitCode], optional
+        search : str, optional
+            Free-text search to filter projects.
+        process_unit : ProcessUnitCode | list[ProcessUnitCode], optional
             The process unit code(s) to filter by (e.g., ProcessUnitCode.BR for Bioreactor).
             Available values: BR (Bioreactor), SPC (Spectroscopy), IVT, PTC.
             Can be a single value or list. Defaults to all units if not specified.
-        process_format : ProcessFormatCode | List[ProcessFormatCode], optional
+        process_format : ProcessFormatCode | list[ProcessFormatCode], optional
             The process format code(s) to filter by (e.g., ProcessFormatCode.MAMMAL).
             Available values: MAMMAL, MICRO, MRNA.
             Can be a single value or list. Defaults to all formats if not specified.
@@ -121,19 +101,28 @@ class DataHowLabClient:
         Iterator
             An iterator of Project objects
         """
-        process_unit_list = [process_unit] if process_unit and not isinstance(process_unit, list) else process_unit
-        process_format_list = [process_format] if process_format and not isinstance(process_format, list) else process_format
+        process_unit_list: list[ProcessUnitCode] | None = None
+        if isinstance(process_unit, list):
+            process_unit_list = process_unit
+        elif process_unit is not None:
+            process_unit_list = [process_unit]
 
-        return self._paginate(
+        process_format_list: list[ProcessFormatCode] | None = None
+        if isinstance(process_format, list):
+            process_format_list = process_format
+        elif process_format is not None:
+            process_format_list = [process_format]
+
+        return paginate(
             self._api.get_projects_api_v1_projects_get,
-            search=name,
+            search=search,
             process_unit=process_unit_list,
             process_format=process_format_list,
         )
 
     def get_experiments(
         self,
-        name: str | None = None,
+        search: str | None = None,
         process_unit: "ProcessUnitCode | list[ProcessUnitCode] | None" = None,
         process_format: "ProcessFormatCode | list[ProcessFormatCode] | None" = None,
     ) -> "Iterator[Experiment]":
@@ -141,13 +130,13 @@ class DataHowLabClient:
 
         Parameters
         ----------
-        name : str, optional
-            Search in DB by name (free-text search), by default None
-        process_unit : ProcessUnitCode | List[ProcessUnitCode], optional
+        search : str, optional
+            Free-text search to filter experiments.
+        process_unit : ProcessUnitCode | list[ProcessUnitCode], optional
             The process unit code(s) to filter by (e.g., ProcessUnitCode.BR for Bioreactor).
             Available values: BR (Bioreactor), SPC (Spectroscopy), IVT, PTC.
             Can be a single value or list. Defaults to all units if not specified.
-        process_format : ProcessFormatCode | List[ProcessFormatCode], optional
+        process_format : ProcessFormatCode | list[ProcessFormatCode], optional
             The process format code(s) to filter by (e.g., ProcessFormatCode.MAMMAL).
             Available values: MAMMAL, MICRO, MRNA.
             Can be a single value or list. Defaults to all formats if not specified.
@@ -157,31 +146,37 @@ class DataHowLabClient:
         Iterator
             An iterator of Experiment objects
         """
-        process_unit_list = [process_unit] if process_unit and not isinstance(process_unit, list) else process_unit
-        process_format_list = [process_format] if process_format and not isinstance(process_format, list) else process_format
+        process_unit_list: list[ProcessUnitCode] | None = None
+        if isinstance(process_unit, list):
+            process_unit_list = process_unit
+        elif process_unit is not None:
+            process_unit_list = [process_unit]
 
-        return self._paginate(
+        process_format_list: list[ProcessFormatCode] | None = None
+        if isinstance(process_format, list):
+            process_format_list = process_format
+        elif process_format is not None:
+            process_format_list = [process_format]
+
+        return paginate(
             self._api.get_experiments_api_v1_experiments_get,
-            search=name,
+            search=search,
             process_unit=process_unit_list,
             process_format=process_format_list,
         )
 
     def get_products(
         self,
-        code: str | None = None,
-        name: str | None = None,
-        process_format: "ProcessFormatCode | list[ProcessFormatCode] | None" = None,  # type: ignore[name-defined]
+        search: str | None = None,
+        process_format: "ProcessFormatCode | list[ProcessFormatCode] | None" = None,
     ) -> "Iterator[Product]":
         """Retrieve the available products for the user
 
         Parameters
         ----------
-        code : str, optional
-            Filter products by code, by default None
-        name : str, optional
-            Search products by name (free-text search), by default None
-        process_format : ProcessFormatCode | List[ProcessFormatCode], optional
+        search : str, optional
+            Free-text search to filter products.
+        process_format : ProcessFormatCode | list[ProcessFormatCode], optional
             The process format code(s) to filter by (e.g., ProcessFormatCode.MAMMAL).
             Available values: MAMMAL, MICRO, MRNA.
             Can be a single value or list. Defaults to all formats if not specified.
@@ -191,44 +186,35 @@ class DataHowLabClient:
         Iterator
             An iterator of Product objects
         """
-        process_format_list = [process_format] if process_format and not isinstance(process_format, list) else process_format
+        process_format_list: list[ProcessFormatCode] | None = None
+        if isinstance(process_format, list):
+            process_format_list = process_format
+        elif process_format is not None:
+            process_format_list = [process_format]
 
-        return self._paginate(
+        return paginate(
             self._api.get_products_api_v1_products_get,
-            code=code,
-            search=name,
+            search=search,
             process_format=process_format_list,
         )
 
     def get_variables(
         self,
-        code: str | None = None,
-        name: str | None = None,
-        variant: "VariableVariant | list[VariableVariant] | None" = None,  # type: ignore[name-defined]
+        search: str | None = None,
     ) -> "Iterator[Variable]":
         """Retrieve the available variables for the user
 
         Parameters
         ----------
-        code : str, optional
-            Filter variables by code, by default None
-        name : str, optional
-            Search variables by name (free-text search), by default None
-        variant : VariableVariant | List[VariableVariant], optional
-            Filter by variable variant type(s) (e.g., VariableVariant.NUMERIC).
-            Available values: FLOW, NUMERIC, CATEGORICAL, LOGICAL, SPECTRUM.
-            Can be a single value or list. Defaults to all variants if not specified.
+        search : str, optional
+            Free-text search to filter variables.
 
         Returns
         -------
         Iterator
             An iterator of Variable objects
         """
-        variant_list = [variant] if variant and not isinstance(variant, list) else variant
-
-        return self._paginate(
+        return paginate(
             self._api.get_variables_api_v1_variables_get,
-            code=code,
-            search=name,
-            variant=variant_list,
+            search=search,
         )
