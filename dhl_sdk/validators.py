@@ -4,7 +4,7 @@
 # pylint: disable=missing-class-docstring, protected-access
 # pylint: disable=too-few-public-methods
 
-from datetime import datetime
+from datetime import datetime, timezone
 import math
 import warnings
 from abc import ABC, abstractmethod
@@ -654,10 +654,14 @@ class ExperimentFileValidator(AbstractFileValidator):
                     continue
 
                 start_timestamp = int(
-                    datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%SZ").timestamp()
+                    datetime.strptime(start_time, "%Y-%m-%dT%H:%M:%SZ")
+                    .replace(tzinfo=timezone.utc)
+                    .timestamp()
                 )
                 end_timestamp = int(
-                    datetime.strptime(end_time, "%Y-%m-%dT%H:%M:%SZ").timestamp()
+                    datetime.strptime(end_time, "%Y-%m-%dT%H:%M:%SZ")
+                    .replace(tzinfo=timezone.utc)
+                    .timestamp()
                 )
 
                 # check if all timestamps are within the start and end time
