@@ -1,5 +1,7 @@
 from typing import Any, cast
 
+from openapi_client.models.experiment import Experiment as OpenAPIExperiment
+from openapi_client.models.experiment_variant import ExperimentVariant
 from openapi_client.models.model import Model as OpenAPIModel
 from openapi_client.models.model_status import ModelStatus
 from openapi_client.models.model_type import ModelType
@@ -15,6 +17,7 @@ PROJECT_ID = "3b3ea4d3-a066-474b-aef6-41647654fe32"
 DATASET_ID = "bb6d1875-6c2a-4d97-bba5-1af9f2378b97"
 PRODUCT_ID = "440cf6a1-f8df-4024-a2eb-76d1027ae18f"
 VARIABLE_ID = "0b31ec0b-2520-4300-a367-75ff25830b7b"
+EXPERIMENT_ID = "c5a2b3d4-e5f6-4789-abcd-ef0123456789"
 
 VAR_1_ID = "db0ed94c-5cc9-48dd-b5bc-58f15b4b6797"
 VAR_2_ID = "f54a8afe-d751-4c47-833a-e89c4df2fa17"
@@ -75,3 +78,17 @@ def create_variable(**overrides: Any) -> OpenAPIVariable:
     }
     defaults.update(cast(dict[str, object], overrides))
     return OpenAPIVariable.model_validate(defaults)
+
+
+def create_experiment(**overrides: Any) -> OpenAPIExperiment:
+    defaults: dict[str, object] = {
+        "id": EXPERIMENT_ID,
+        "displayName": "Test Experiment",
+        "productId": PRODUCT_ID,
+        "variableIds": [VAR_1_ID, VAR_2_ID],
+        "description": "Test experiment description",
+        "startTime": "2024-01-01T00:00:00Z",
+        "variant": ExperimentVariant.RUN,
+    }
+    defaults.update(cast(dict[str, object], overrides))
+    return OpenAPIExperiment.model_validate(defaults)
