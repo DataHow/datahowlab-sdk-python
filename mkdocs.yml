@@ -1,0 +1,95 @@
+site_name: DataHowLab SDK
+site_description: The DataHowLab SDK for Python - Simplified and Type-Safe
+site_url: https://github.com/DataHow/datahowlab-sdk-python
+repo_url: https://github.com/DataHow/datahowlab-sdk-python
+repo_name: DataHow/datahowlab-sdk-python
+
+theme:
+  name: material
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_signature_annotations: true
+            separate_signature: true
+            merge_init_into_class: true
+            docstring_section_style: table
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+  - md_in_html
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quick-start.md
+  - User Guide:
+    - Client Initialization: guide/client.md
+    - Products: guide/products.md
+    - Variables: guide/variables.md
+    - Experiments: guide/experiments.md
+    - Recipes: guide/recipes.md
+    - Predictions: guide/predictions.md
+    - Error Handling: guide/errors.md
+  - API Reference:
+    - Client: api/client.md
+    - Models: api/models.md
+    - Types: api/types.md
+    - Errors: api/errors.md
+  - Migration:
+    - v1 to v2: migration.md
+  - Validation Rules: validations.md
+  - Changelog: changelog.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/DataHow/datahowlab-sdk-python
+    - icon: fontawesome/solid/globe
+      link: https://datahow.ch/

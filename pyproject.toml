@@ -1,35 +1,161 @@
-[tool.poetry]
+[project]
 name = "datahowlab-sdk"
-version = "0.3.1"
-description = "The DataHowLab SDK for Python"
-license = "Apache-2.0"
-authors = ["DataHow <feedback@datahow.ch>"]
+version = "2.0.0"
+description = "The DataHowLab SDK for Python - Simplified and Type-Safe"
 readme = "README.md"
-packages = [{include = "dhl_sdk"}]
+license = {text = "Apache-2.0"}
+authors = [{name = "DataHow", email = "feedback@datahow.ch"}]
+requires-python = ">=3.11"
+keywords = ["datahowlab", "biotech", "data", "sdk", "api"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
 
-[tool.poetry.urls]
+dependencies = [
+    "pydantic>=2.9.0",
+    "requests>=2.32.0",
+]
+
+[project.urls]
 Homepage = "https://datahow.ch/"
 Source = "https://github.com/DataHow/datahowlab-sdk-python"
+Documentation = "https://github.com/DataHow/datahowlab-sdk-python"
+"Bug Tracker" = "https://github.com/DataHow/datahowlab-sdk-python/issues"
 
-[tool.poetry.group.dev.dependencies]
-Sphinx = "^5.3.0"
-nbsphinx = "^0.8.9"
-sphinx-rtd-theme = "^1.1.1"
-autodoc-pydantic = "^2.0.1"
-black = "^23.10.1"
-pytest = "^7.4"
-pylint = "^3.0.2"
-pytest-cov = "^3.0.0"
-ipykernel = "^6.26.0"
-matplotlib = "^3.8.1"
-
-[tool.poetry.dependencies]
-python = ">=3.9, <3.13"
-pydantic = "^2.4.2"
-requests = "^2.31.0"
-numpy = "^1.26.1"
-
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.6.0",
+    "ipykernel>=6.29.0",
+    "matplotlib>=3.9.0",
+]
+docs = [
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.25.0",
+]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["dhl_sdk"]
+
+[tool.setuptools.package-data]
+dhl_sdk = ["py.typed"]
+
+# =============================================================================
+# Ruff Configuration - Linting and Formatting
+# =============================================================================
+
+[tool.ruff]
+# Target Python 3.11+
+target-version = "py311"
+
+# Line length matching black's default
+line-length = 88
+
+# Exclude directories
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".pytest_cache",
+    ".ruff_cache",
+    "build",
+    "dist",
+    "*.egg-info",
+]
+
+[tool.ruff.lint]
+# Enable comprehensive rule sets
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort - import sorting
+    "N",      # pep8-naming
+    "UP",     # pyupgrade - modern Python syntax
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "SIM",    # flake8-simplify
+    "RUF",    # ruff-specific rules
+]
+
+# Disable specific rules
+ignore = [
+    "E501",   # line too long (handled by formatter)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = [
+    "F401",   # unused imports (re-exports)
+    "F403",   # star imports
+]
+"tests/**/*.py" = [
+    "N802",   # function name should be lowercase (allow test_ClassName)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["dhl_sdk"]
+
+[tool.ruff.format]
+# Use double quotes for strings
+quote-style = "double"
+
+# Indent with spaces
+indent-style = "space"
+
+# Respect magic trailing comma
+skip-magic-trailing-comma = false
+
+# =============================================================================
+# Pytest Configuration
+# =============================================================================
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--showlocals",
+]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+# =============================================================================
+# Coverage Configuration
+# =============================================================================
+
+[tool.coverage.run]
+source = ["dhl_sdk"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
