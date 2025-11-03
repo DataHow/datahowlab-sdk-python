@@ -11,44 +11,54 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.9]
-        poetry-version: [1.7.0]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
+    - uses: actions/checkout@v4
+    - name: Generate OpenAPI client
+      uses: openapi-generators/openapitools-generator-action@v1
       with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install poetry
-      uses: abatilo/actions-poetry@v2.0.0
+        generator: python
+        openapi-file: openapi.json
+        config-file: .openapi-generator-config.json
+        command-args: -o dhl_api --global-property=apiTests=false,modelTests=false
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
       with:
-        poetry-version: ${{ matrix.poetry-version }}
+        version: "latest"
+    - name: Set up Python ${{ matrix.python-version }}
+      run: uv python install ${{ matrix.python-version }}
     - name: Install dependencies
-      run: poetry install
+      run: uv sync
     - name: Run tests
-      run: poetry run pytest --cov=./ --cov-report=xml
+      run: uv run pytest --cov=./ --cov-report=xml
 
   code-quality:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [3.9]
-        poetry-version: [1.7.0]
+        python-version: ["3.10"]
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
+    - uses: actions/checkout@v4
+    - name: Generate OpenAPI client
+      uses: openapi-generators/openapitools-generator-action@v1
       with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install poetry
-      uses: abatilo/actions-poetry@v2.0.0
+        generator: python
+        openapi-file: openapi.json
+        config-file: .openapi-generator-config.json
+        command-args: -o dhl_api --global-property=apiTests=false,modelTests=false
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
       with:
-        poetry-version: ${{ matrix.poetry-version }}
+        version: "latest"
+    - name: Set up Python ${{ matrix.python-version }}
+      run: uv python install ${{ matrix.python-version }}
     - name: Install dependencies
-      run: poetry install
-    - name: Run black
-      run: poetry run black . --check
-    - name: Run pylint
-      run: poetry run pylint --disable R dhl_sdk/
+      run: uv sync
+    - name: Run format check
+      run: uv run ruff format . --check
+    - name: Run linting
+      run: uv run ruff check .

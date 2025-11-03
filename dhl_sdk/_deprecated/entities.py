@@ -56,7 +56,6 @@ from dhl_sdk.exceptions import (
 )
 
 
-# pylint: disable=not-an-iterable
 class Dataset(BaseModel):
     """Model Dataset"""
 
@@ -146,7 +145,6 @@ class Dataset(BaseModel):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["Dataset"]:
-        # pylint: disable=missing-function-docstring
         return CRUDClient["Dataset"](client, DATASETS_URL, Dataset)
 
 
@@ -175,7 +173,6 @@ class SpectraDataset(Dataset):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["SpectraDataset"]:
-        # pylint: disable=missing-function-docstring
         return CRUDClient["SpectraDataset"](client, DATASETS_URL, SpectraDataset)
 
 
@@ -206,9 +203,7 @@ class Model(BaseModel, ABC):
         if preprocessor.validate():
             json_data = preprocessor.format()
         else:
-            raise InvalidInputsException(
-                "The provided inputs failed the validation step"
-            )
+            raise InvalidInputsException("The provided inputs failed the validation step")
 
         predictions = []
         for prediction_data in json_data:
@@ -225,7 +220,10 @@ class Model(BaseModel, ABC):
 
             predictions.append(PredictionResponse(**response.json()))
 
-        return format_predictions(predictions, model=self)
+        return format_predictions(
+            predictions,
+            model=self,  # type: ignore - FIXME if still relevant
+        )
 
     @property
     def model_variables(self) -> list[Variable]:
@@ -334,13 +332,9 @@ class SpectraModel(Model):
         """
 
         if not self.success:
-            raise ModelPredictionException(
-                f"{self.name} is not ready for prediction. The current status is {self.status}"
-            )
+            raise ModelPredictionException(f"{self.name} is not ready for prediction. The current status is {self.status}")
 
-        spectra_processing_strategy = SpectraPreprocessor(
-            spectra=spectra, inputs=inputs, model=self
-        )
+        spectra_processing_strategy = SpectraPreprocessor(spectra=spectra, inputs=inputs, model=self)
 
         predictions = super().get_predictions(spectra_processing_strategy)
 
@@ -374,7 +368,6 @@ class SpectraModel(Model):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["SpectraModel"]:
-        # pylint: disable=missing-function-docstring
         return CRUDClient["SpectraModel"](client, MODELS_URL, SpectraModel)
 
 
@@ -453,9 +446,7 @@ class CultivationPropagationModel(CultivationModel):
         """
 
         if not self.success:
-            raise ModelPredictionException(
-                f"{self.name} is not ready for prediction. The current status is {self.status}"
-            )
+            raise ModelPredictionException(f"{self.name} is not ready for prediction. The current status is {self.status}")
 
         prediction_config = PredictionRequestConfig.new(
             model_confidence=config.model_confidence,
@@ -474,10 +465,7 @@ class CultivationPropagationModel(CultivationModel):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["CultivationPropagationModel"]:
-        # pylint: disable=missing-function-docstring
-        return CRUDClient["CultivationPropagationModel"](
-            client, MODELS_URL, CultivationPropagationModel
-        )
+        return CRUDClient["CultivationPropagationModel"](client, MODELS_URL, CultivationPropagationModel)
 
 
 class CultivationHistoricalModel(CultivationModel):
@@ -487,7 +475,6 @@ class CultivationHistoricalModel(CultivationModel):
         super().__init__(**data)
         self._client = data["client"]
 
-    # pylint: disable=arguments-renamed
     def predict(
         self,
         timestamps: list[Union[int, float]],
@@ -535,13 +522,9 @@ class CultivationHistoricalModel(CultivationModel):
         """
 
         if not self.success:
-            raise ModelPredictionException(
-                f"{self.name} is not ready for prediction. The current status is {self.status}"
-            )
+            raise ModelPredictionException(f"{self.name} is not ready for prediction. The current status is {self.status}")
 
-        prediction_config = PredictionRequestConfig.new(
-            model_confidence=config.model_confidence
-        )
+        prediction_config = PredictionRequestConfig.new(model_confidence=config.model_confidence)
 
         data_processing_strategy = CultivationHistoricalPreprocessor(
             timestamps=timestamps,
@@ -556,13 +539,9 @@ class CultivationHistoricalModel(CultivationModel):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["CultivationHistoricalModel"]:
-        # pylint: disable=missing-function-docstring
-        return CRUDClient["CultivationHistoricalModel"](
-            client, MODELS_URL, CultivationHistoricalModel
-        )
+        return CRUDClient["CultivationHistoricalModel"](client, MODELS_URL, CultivationHistoricalModel)
 
 
-# pylint: disable=too-few-public-methods
 class ModelFactory:
     """Factory for Model, given the process unit id and model type"""
 
@@ -578,9 +557,7 @@ class ModelFactory:
         """Get the model type from the process unit id"""
 
         if self._process_unit_id not in self.MODEL_MAP:
-            raise NotImplementedError(
-                f"Process unit id {self._process_unit_id} is not currently supported"
-            )
+            raise NotImplementedError(f"Process unit id {self._process_unit_id} is not currently supported")
 
         model = self.MODEL_MAP[self._process_unit_id]
 
@@ -690,7 +667,6 @@ class SpectraProject(Project):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["SpectraProject"]:
-        # pylint: disable=missing-function-docstring
         return CRUDClient["SpectraProject"](client, PROJECTS_URL, SpectraProject)
 
 
@@ -715,9 +691,7 @@ class CultivationProject(Project):
         """Get the models of the project from the API"""
 
         if model_type not in ["propagation", "historical"]:
-            raise ValueError(
-                f"model_type must be either propagation or historical, got {model_type}"
-            )
+            raise ValueError(f"model_type must be either propagation or historical, got {model_type}")
 
         query_params = self._get_model_query_params(name=name, model_type=model_type)
 
@@ -755,7 +729,4 @@ class CultivationProject(Project):
 
     @staticmethod
     def requests(client: Client) -> CRUDClient["CultivationProject"]:
-        # pylint: disable=missing-function-docstring
-        return CRUDClient["CultivationProject"](
-            client, PROJECTS_URL, CultivationProject
-        )
+        return CRUDClient["CultivationProject"](client, PROJECTS_URL, CultivationProject)
