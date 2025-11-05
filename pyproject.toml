@@ -43,31 +43,25 @@ build-backend = "hatchling.build"
 
 [tool.ruff]
 line-length = 140
-exclude = [
-  "dhl_sdk/_deprecated",
-  "dhl_api",
-  "examples.ipynb",
-]
+exclude = ["dhl_sdk/_deprecated", "dhl_api", "examples.ipynb"]
 
 [tool.basedpyright]
 typeCheckingMode = "recommended"
 include = ["dhl_sdk", "tests"]
-exclude = [
-  "dhl_sdk/_deprecated",
-  "dhl_api",
-]
+exclude = ["dhl_sdk/_deprecated", "dhl_api"]
 
 [[tool.basedpyright.executionEnvironments]]
 root = "tests"
-reportUnknownMemberType = "none"
-reportUnknownParameterType = "none"
-reportMissingParameterType = "none"
-reportUnusedParameter = "none"
 reportAny = "none"
-reportUnknownArgumentType = "none"
-reportUnknownVariableType = "none"
-reportMissingTypeStubs = "none"
-reportUninitializedInstanceVariable = "none"
-reportImplicitOverride = "none"
 reportArgumentType = "none"
 reportAttributeAccessIssue = "none"
+reportExplicitAny = "none"
+reportImplicitOverride = "none"
+reportMissingParameterType = "none"
+reportMissingTypeStubs = "none"
+reportUninitializedInstanceVariable = "none"
+reportUnknownArgumentType = "none"
+reportUnknownMemberType = "none"
+reportUnknownParameterType = "none"
+reportUnknownVariableType = "none"
+reportUnusedParameter = "none"
