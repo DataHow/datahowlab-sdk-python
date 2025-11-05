@@ -20,9 +20,8 @@ def paginate(getter_func: PaginatedGetter[P, T], *args: P.args, **kwargs: P.kwar
             getter_func(
                 *args,
                 **kwargs,
-                # Python does not seem to allow extra kwargs in Protocol with ParamSpec
-                skip=skip,  # pyright: ignore[reportCallIssue]
-                limit=limit,  # pyright: ignore[reportCallIssue]
+                skip=skip,  # pyright: ignore[reportCallIssue] - ParamSpec Protocol doesn't support additional kwargs at type-check time
+                limit=limit,  # pyright: ignore[reportCallIssue] - ParamSpec Protocol doesn't support additional kwargs at type-check time
             ),
         )
 
