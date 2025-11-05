@@ -92,3 +92,23 @@ def create_experiment(**overrides: Any) -> OpenAPIExperiment:
     }
     defaults.update(cast(dict[str, object], overrides))
     return OpenAPIExperiment.model_validate(defaults)
+
+
+def create_raw_experiment_data_value(values: list[Any], timestamps: list[int], data_type: str = "numeric"):
+    """Create a RawExperimentDataInputValue with proper OpenAPI structure."""
+    from openapi_client.models.raw_experiment_data_input_value import RawExperimentDataInputValue
+    from openapi_client.models.raw_time_series_data import RawTimeSeriesData
+    from openapi_client.models.numerical_time_series_with_timestamps import NumericalTimeSeriesWithTimestamps
+    from openapi_client.models.categorical_time_series_with_timestamps import CategoricalTimeSeriesWithTimestamps
+    from openapi_client.models.logical_time_series_with_timestamps import LogicalTimeSeriesWithTimestamps
+
+    if data_type == "numeric":
+        ts = NumericalTimeSeriesWithTimestamps(values=values, timestamps=timestamps)
+    elif data_type == "categorical":
+        ts = CategoricalTimeSeriesWithTimestamps(values=values, timestamps=timestamps)
+    elif data_type == "logical":
+        ts = LogicalTimeSeriesWithTimestamps(values=values, timestamps=timestamps)
+    else:
+        raise ValueError(f"Unknown data_type: {data_type}")
+
+    return RawExperimentDataInputValue(actual_instance=RawTimeSeriesData(actual_instance=ts))

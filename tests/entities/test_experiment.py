@@ -11,6 +11,7 @@ from tests.entities._fixtures import (
     create_experiment,
     create_product,
     create_variable,
+    create_raw_experiment_data_value,
     EXPERIMENT_ID,
     PRODUCT_ID,
     VAR_1_ID,
@@ -98,9 +99,10 @@ class TestExperiment(unittest.TestCase):
         mock_api.get_experiment_data_api_v1_experiments_experiment_id_data_get.assert_called_once_with(experiment_id=EXPERIMENT_ID)
 
     def test_get_data_compat(self):
-        mock_value_1 = {"format": "timeseries", "type": "numeric", "values": [1.0, 2.0], "timestamps": [1704067200, 1704070800]}
-        mock_value_2 = {"format": "timeseries", "type": "numeric", "values": [5.0, 6.0], "timestamps": [1704067200, 1704070800]}
-        mock_value_3 = {"format": "timeseries", "type": "numeric", "values": [10.0, 11.0], "timestamps": [1704067200, 1704070800]}
+        # Create proper OpenAPI objects
+        mock_value_1 = create_raw_experiment_data_value([1.0, 2.0], [1704067200, 1704070800])
+        mock_value_2 = create_raw_experiment_data_value([5.0, 6.0], [1704067200, 1704070800])
+        mock_value_3 = create_raw_experiment_data_value([10.0, 11.0], [1704067200, 1704070800])
         mock_data = {
             VAR_1_ID: mock_value_1,
             VAR_2_ID: mock_value_2,
@@ -186,6 +188,8 @@ class TestExperiment(unittest.TestCase):
 
 
 class TestExperimentRequest(unittest.TestCase):
+    product: Product
+
     def setUp(self):
         api_product = create_product(id=PRODUCT_ID, name="Test Product", code="TEST_PROD")
         self.product = Product(api_product)
@@ -198,7 +202,7 @@ class TestExperimentRequest(unittest.TestCase):
             process_unit=ProcessUnitCode.BR,
             start_time=datetime(2024, 1, 1, 0, 0, 0),
             end_time=datetime(2024, 1, 1, 12, 0, 0),
-            data={VAR_1_ID: {"type": "timeseries", "values": [5.5, 6.5], "timestamps": [1704067200, 1704070800]}},
+            data={VAR_1_ID: create_raw_experiment_data_value([5.5, 6.5], [1704067200, 1704070800])},
         )
         self.assertIsNotNone(request)
 
@@ -211,7 +215,7 @@ class TestExperimentRequest(unittest.TestCase):
             process_unit=ProcessUnitCode.BR,
             start_time=datetime(2024, 1, 1, 0, 0, 0),
             end_time=datetime(2024, 1, 1, 12, 0, 0),
-            data={VAR_1_ID: {"type": "timeseries", "values": [5.5, 6.5], "timestamps": [1704067200, 1704070800]}},
+            data={VAR_1_ID: create_raw_experiment_data_value([5.5, 6.5], [1704067200, 1704070800])},
         )
         self.assertIsNotNone(request)
 
@@ -223,7 +227,7 @@ class TestExperimentRequest(unittest.TestCase):
             process_unit=ProcessUnitCode.BR,
             start_time=datetime(2024, 1, 1, 0, 0, 0),
             end_time=datetime(2024, 1, 1, 12, 0, 0),
-            data={VAR_1_ID: {"type": "timeseries", "values": [5.5, 6.5], "timestamps": [1704067200, 1704070800]}},
+            data={VAR_1_ID: create_raw_experiment_data_value([5.5, 6.5], [1704067200, 1704070800])},
             tags={"tag1": "value1"},
         )
         self.assertIsNotNone(request)
@@ -236,15 +240,15 @@ class TestExperimentRequest(unittest.TestCase):
             process_unit=ProcessUnitCode.BR,
             start_time=datetime(2024, 1, 1, 0, 0, 0),
             end_time=datetime(2024, 1, 1, 12, 0, 0),
-            data={VAR_1_ID: {"type": "timeseries", "values": [5.5, 6.5], "timestamps": [1704067200, 1704070800]}},
+            data={VAR_1_ID: create_raw_experiment_data_value([5.5, 6.5], [1704067200, 1704070800])},
             extra={"extra1": "value1"},
         )
         self.assertIsNotNone(request)
 
     def test_new_with_multiple_variables(self):
         data = {
-            VAR_1_ID: {"type": "timeseries", "values": [5.5, 6.5], "timestamps": [1704067200, 1704070800]},
-            VAR_2_ID: {"type": "timeseries", "values": [10.0, 11.0], "timestamps": [1704067200, 1704070800]},
+            VAR_1_ID: create_raw_experiment_data_value([5.5, 6.5], [1704067200, 1704070800]),
+            VAR_2_ID: create_raw_experiment_data_value([10.0, 11.0], [1704067200, 1704070800]),
         }
 
         request = ExperimentRequest.new(
@@ -266,7 +270,7 @@ class TestExperimentRequest(unittest.TestCase):
             process_unit=ProcessUnitCode.BR,
             start_time=datetime(2024, 1, 1, 0, 0, 0),
             end_time=datetime(2024, 1, 1, 12, 0, 0),
-            data={VAR_1_ID: {"type": "timeseries", "values": [5.5, 6.5], "timestamps": [1704067200, 1704070800]}},
+            data={VAR_1_ID: create_raw_experiment_data_value([5.5, 6.5], [1704067200, 1704070800])},
         )
         result = str(request)
         self.assertEqual(result, "ExperimentRequest(TEST_PROD-New Experiment)")
@@ -280,7 +284,7 @@ class TestExperimentRequest(unittest.TestCase):
             process_unit=ProcessUnitCode.BR,
             start_time=datetime(2024, 1, 1, 0, 0, 0),
             end_time=datetime(2024, 1, 1, 12, 0, 0),
-            data={VAR_1_ID: {"type": "timeseries", "values": [5.5, 6.5], "timestamps": [1704067200, 1704070800]}},
+            data={VAR_1_ID: create_raw_experiment_data_value([5.5, 6.5], [1704067200, 1704070800])},
         )
         result = str(request)
         self.assertEqual(result, "ExperimentRequest(TEST_PROD-New Experiment-A)")
@@ -302,7 +306,7 @@ class TestExperimentRequest(unittest.TestCase):
             process_unit=ProcessUnitCode.BR,
             start_time=datetime(2024, 1, 1, 0, 0, 0),
             end_time=datetime(2024, 1, 1, 12, 0, 0),
-            data={VAR_1_ID: {"type": "timeseries", "values": [5.5, 6.5], "timestamps": [1704067200, 1704070800]}},
+            data={VAR_1_ID: create_raw_experiment_data_value([5.5, 6.5], [1704067200, 1704070800])},
         )
         experiment = request.create(mock_api)
 
@@ -330,8 +334,8 @@ class TestExperimentRequest(unittest.TestCase):
             start_time=datetime(2024, 1, 1, 0, 0, 0),
             end_time=datetime(2024, 1, 1, 12, 0, 0),
             data={
-                VAR_1_ID: {"type": "timeseries", "values": [5.5, 6.5], "timestamps": [1704067200, 1704070800]},
-                VAR_2_ID: {"type": "timeseries", "values": [10.0, 11.0], "timestamps": [1704067200, 1704070800]},
+                VAR_1_ID: create_raw_experiment_data_value([5.5, 6.5], [1704067200, 1704070800]),
+                VAR_2_ID: create_raw_experiment_data_value([10.0, 11.0], [1704067200, 1704070800]),
             },
             tags={"tag1": "value1", "tag2": "value2"},
             extra={"extra1": "value1"},
@@ -342,3 +346,152 @@ class TestExperimentRequest(unittest.TestCase):
         self.assertEqual(experiment.id, "exp-789")
         self.assertEqual(experiment.display_name, "TEST_PROD-Full Experiment-B")
         mock_api.create_experiment_api_v1_experiments_post.assert_called_once()
+
+    def test_from_compat_data(self):
+        from dhl_sdk.entities.variable import Variable
+        from openapi_client.models.variantdetails import Variantdetails
+        from openapi_client.models.numeric_details_output import NumericDetailsOutput
+        from openapi_client.models.categorical_details_output import CategoricalDetailsOutput
+
+        # Create mock variables with different types
+        mock_var_1 = create_variable(id=VAR_1_ID, code="TEMP", variantDetails=Variantdetails(actual_instance=NumericDetailsOutput()))
+        mock_var_2 = create_variable(id=VAR_2_ID, code="STATUS", variantDetails=Variantdetails(actual_instance=CategoricalDetailsOutput()))
+
+        variables = [Variable(mock_var_1), Variable(mock_var_2)]
+
+        # Compat data format
+        compat_data = {
+            "TEMP": {"values": [10.0, 11.0, 12.0], "timestamps": [1704067200, 1704070800, 1704074400]},
+            "STATUS": {"values": ["ON", "OFF", "ON"], "timestamps": [1704067200, 1704070800, 1704074400]},
+        }
+
+        # Convert to OpenAPI format
+        result = ExperimentRequest.from_compat_data(variables, compat_data)
+
+        # Verify result
+        self.assertIsNotNone(result)
+        self.assertIsInstance(result, dict)
+        self.assertIn(VAR_1_ID, result)
+        self.assertIn(VAR_2_ID, result)
+
+        # Check VAR_1 (numeric) - access through wrapped structure
+        var1_wrapped = result[VAR_1_ID]
+        assert var1_wrapped is not None  # Type narrowing
+        assert var1_wrapped.actual_instance is not None  # Type narrowing
+        var1_data = var1_wrapped.actual_instance.actual_instance
+        assert var1_data is not None  # Type narrowing
+        self.assertEqual(var1_data.format, "timeseries")
+        self.assertEqual(var1_data.type, "numeric")
+        self.assertEqual(var1_data.values, [10.0, 11.0, 12.0])
+        self.assertEqual(var1_data.timestamps, [1704067200, 1704070800, 1704074400])
+
+        # Check VAR_2 (categorical) - access through wrapped structure
+        var2_wrapped = result[VAR_2_ID]
+        assert var2_wrapped is not None  # Type narrowing
+        assert var2_wrapped.actual_instance is not None  # Type narrowing
+        var2_data = var2_wrapped.actual_instance.actual_instance
+        self.assertIsNotNone(var2_data)
+        assert var2_data is not None  # Type narrowing
+        self.assertEqual(var2_data.format, "timeseries")
+        self.assertEqual(var2_data.type, "categorical")
+        self.assertEqual(var2_data.values, ["ON", "OFF", "ON"])
+        self.assertEqual(var2_data.timestamps, [1704067200, 1704070800, 1704074400])
+
+    def test_from_compat_data_with_flow_variant(self):
+        from dhl_sdk.entities.variable import Variable
+        from openapi_client.models.variantdetails import Variantdetails
+        from openapi_client.models.flow_details_output import FlowDetailsOutput
+        from openapi_client.models.flow_type import FlowType
+
+        # Create mock variable with flow type
+        mock_var_1 = create_variable(
+            id=VAR_1_ID, code="FLOW_RATE", variantDetails=Variantdetails(actual_instance=FlowDetailsOutput(type=FlowType.CONTI))
+        )
+
+        variables = [Variable(mock_var_1)]
+
+        # Compat data format
+        compat_data = {
+            "FLOW_RATE": {"values": [1.0, 2.0, 3.0], "timestamps": [1704067200, 1704070800, 1704074400]},
+        }
+
+        # Convert to OpenAPI format
+        result = ExperimentRequest.from_compat_data(variables, compat_data)
+
+        # Verify result - flow should be treated as numeric
+        var1_wrapped = result[VAR_1_ID]
+        assert var1_wrapped is not None  # Type narrowing
+        assert var1_wrapped.actual_instance is not None  # Type narrowing
+        var1_data = var1_wrapped.actual_instance.actual_instance
+        assert var1_data is not None  # Type narrowing
+        self.assertEqual(var1_data.format, "timeseries")
+        self.assertEqual(var1_data.type, "numeric")
+        self.assertEqual(var1_data.values, [1.0, 2.0, 3.0])
+
+    def test_from_compat_data_non_unique_codes(self):
+        from dhl_sdk.entities.variable import Variable
+        from openapi_client.models.variantdetails import Variantdetails
+        from openapi_client.models.numeric_details_output import NumericDetailsOutput
+
+        # Create mock variables with the same code
+        mock_var_1 = create_variable(id=VAR_1_ID, code="TEMP", variantDetails=Variantdetails(actual_instance=NumericDetailsOutput()))
+        mock_var_2 = create_variable(
+            id=VAR_2_ID,
+            code="TEMP",  # Duplicate code
+            variantDetails=Variantdetails(actual_instance=NumericDetailsOutput()),
+        )
+
+        variables = [Variable(mock_var_1), Variable(mock_var_2)]
+
+        # Compat data format
+        compat_data = {
+            "TEMP": {"values": [10.0, 11.0], "timestamps": [1704067200, 1704070800]},
+        }
+
+        # Should raise ValueError for non-unique codes
+        with self.assertRaises(ValueError) as context:
+            _ = ExperimentRequest.from_compat_data(variables, compat_data)
+
+        self.assertIn("Non-unique variable code", str(context.exception))
+
+    def test_from_compat_data_spectra_not_supported(self):
+        from dhl_sdk.entities.variable import Variable
+        from openapi_client.models.variantdetails import Variantdetails
+        from openapi_client.models.spectrum_details_output import SpectrumDetailsOutput
+
+        # Create mock variable with spectrum type
+        mock_var_1 = create_variable(id=VAR_1_ID, code="SPECTRUM", variantDetails=Variantdetails(actual_instance=SpectrumDetailsOutput()))
+
+        variables = [Variable(mock_var_1)]
+
+        # Compat data format
+        compat_data = {
+            "SPECTRUM": {"values": [1.0, 2.0], "timestamps": [1704067200, 1704070800]},
+        }
+
+        # Should raise ValueError for spectra variant
+        with self.assertRaises(NotImplementedError) as context:
+            _ = ExperimentRequest.from_compat_data(variables, compat_data)
+
+        self.assertIn("Spectra variant is not supported", str(context.exception))
+
+    def test_from_compat_data_unknown_variable_code(self):
+        from dhl_sdk.entities.variable import Variable
+        from openapi_client.models.variantdetails import Variantdetails
+        from openapi_client.models.numeric_details_output import NumericDetailsOutput
+
+        # Create mock variable
+        mock_var_1 = create_variable(id=VAR_1_ID, code="TEMP", variantDetails=Variantdetails(actual_instance=NumericDetailsOutput()))
+
+        variables = [Variable(mock_var_1)]
+
+        # Compat data format with unknown variable code
+        compat_data = {
+            "UNKNOWN_VAR": {"values": [10.0, 11.0], "timestamps": [1704067200, 1704070800]},
+        }
+
+        # Should raise ValueError for unknown variable code
+        with self.assertRaises(ValueError) as context:
+            _ = ExperimentRequest.from_compat_data(variables, compat_data)
+
+        self.assertIn("Variable code 'UNKNOWN_VAR' not found", str(context.exception))
