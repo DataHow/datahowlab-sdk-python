@@ -1,5 +1,5 @@
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 from typing_extensions import override
 
 if TYPE_CHECKING:
@@ -74,6 +74,8 @@ class ModelExperiment:
         Returns:
             Dict with variable codes as keys and {"values": [...], "timestamps": [...]} as values
         """
+        from openapi_client.models.scalars_data import ScalarsData
+
         raw_data = self.get_data(api)
         variables = self.get_variables(api)
 
@@ -89,32 +91,22 @@ class ModelExperiment:
                 continue
 
             var_code = var.code
-            output_dict = cast(Any, tabularized_output.to_dict() if hasattr(tabularized_output, "to_dict") else tabularized_output)  # pyright: ignore[reportExplicitAny, reportAny] - OpenAPI oneOf types require dynamic handling
+            actual = tabularized_output.actual_instance
 
-            # Handle the actual_instance within TabularizedDataModelOutput
-            if isinstance(output_dict, dict) and "actual_instance" in output_dict:
-                actual_data = cast(dict[str, Any], output_dict["actual_instance"])  # pyright: ignore[reportExplicitAny] - OpenAPI oneOf actual_instance has dynamic structure
+            # Extract values based on oneOf type
+            if actual is None:
+                result[var_code] = {"values": [None], "timestamps": [0]}
+            elif isinstance(actual, ScalarsData):
+                # Scalar: convert to timeseries with timestamps=[0]
+                inner = actual.actual_instance
+                value = inner.value if inner else None
+                result[var_code] = {"values": [value], "timestamps": [0]}
             else:
-                actual_data = cast(dict[str, Any], output_dict)  # pyright: ignore[reportExplicitAny] - OpenAPI oneOf types have dynamic structure
-
-            # Check if it's a scalar or timeseries
-            if isinstance(actual_data, dict):  # pyright: ignore[reportUnnecessaryIsInstance] - Runtime check needed due to cast from Any
-                data_format = actual_data.get("format")
-
-                if data_format == "scalar":
-                    # Convert scalar to timeseries with timestamps=[0]
-                    value = actual_data.get("value")
-                    result[var_code] = {"values": [value], "timestamps": [0]}
-                elif data_format == "timeseries":
-                    # Use top-level timestamps for timeseries
-                    values = actual_data.get("values", [])  # pyright: ignore[reportAny] - Dynamic data structure from OpenAPI oneOf
-                    result[var_code] = {"values": values, "timestamps": top_level_timestamps}
-                else:
-                    # Unknown format, pass through
-                    result[var_code] = actual_data
-            else:
-                # If not a dict, pass through as-is
-                result[var_code] = cast(dict[str, Any], actual_data)  # pyright: ignore[reportExplicitAny] - Unknown format fallback for legacy compatibility
+                # Time series: use top-level timestamps
+                # Type checker knows this must be TabularizedTimeSeriesData after None and ScalarsData checks
+                inner = actual.actual_instance
+                values = inner.values if inner else [None]
+                result[var_code] = {"values": values, "timestamps": top_level_timestamps}
 
         return result
 
