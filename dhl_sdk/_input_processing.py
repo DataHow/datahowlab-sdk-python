@@ -1,5 +1,4 @@
-"""This module contains utility functions for data validation and formatting in the SDK
-"""
+"""This module contains utility functions for data validation and formatting in the SDK"""
 
 # pylint: disable=missing-class-docstring
 # pylint: disable=missing-function-docstring
@@ -281,7 +280,9 @@ class CultivationPropagationPreprocessor(Preprocessor):
         _validate_upstream_inputs(inputs=self.inputs)
 
         # validate inputs with model variables
-        _validate_propagation_with_variables(self.timestamps, self.inputs, self.model)
+        _validate_propagation_with_variables(
+            self.timestamps, self.inputs, self.model, self.prediction_config
+        )
 
         # validate inputs and timestamps with prediction config
         _validate_propagation_prediction_config(
@@ -311,7 +312,11 @@ class CultivationPropagationPreprocessor(Preprocessor):
             for variable in model_variables:
                 if variable.matches_key(key):
                     formatted_inputs[variable.id] = {}
-                    if groupcode_is_propagation_prediction(variable.group.code):
+                    # insert initial value only for prop. pred. vars, if no filtering present
+                    if (
+                        groupcode_is_propagation_prediction(variable.group.code)
+                        and self.prediction_config.filtering_config is None
+                    ):
                         formatted_inputs[variable.id]["values"] = [value[0]]
                         formatted_inputs[variable.id]["timestamps"] = [
                             self.timestamps[self.prediction_config.starting_index]
@@ -626,7 +631,10 @@ def _validate_upstream_inputs(inputs: dict[str, list]) -> None:
 
 
 def _validate_propagation_with_variables(
-    timestamps: list[int], inputs: dict[str, list], model: Model
+    timestamps: list[int],
+    inputs: dict[str, list],
+    model: Model,
+    prediction_config: PredictionRequestConfig,
 ) -> None:
     """
     Validate the inputs based on the provided timestamps and model.
@@ -639,6 +647,8 @@ def _validate_propagation_with_variables(
         A dictionary where keys are variable codes, and values are lists of inputs.
     model : Model
         Model used for prediction
+    prediction_config: PredictionRequestConfig
+        Prediction configuration for the propagation model
 
     Raises
     ------
@@ -655,7 +665,20 @@ def _validate_propagation_with_variables(
                 if len(inputs[variable.code]) != len(timestamps):
                     raise InvalidInputsException(
                         (
-                            f"The recipe requires {variable.code} to be complete,"
+                            f"The recipe requires {variable.code} to be complete, "
+                            f"so it must have the same length as timestamps"
+                        )
+                    )
+
+            elif (
+                groupcode_is_propagation_prediction(variable.group.code)
+                and prediction_config.filtering_config is not None
+            ):
+                if len(inputs[variable.code]) != len(timestamps):
+                    raise InvalidInputsException(
+                        (
+                            f"When filtering is activated, the recipe requires "
+                            f"{variable.code} to be complete,"
                             f"so it must have the same length as timestamps"
                         )
                     )
@@ -672,13 +695,20 @@ def _validate_propagation_with_variables(
 
             # Validate if numeric inputs are valid numeric values
             if groupcode_is_numeric(variable.group.code):
-                if not all(
-                    isinstance(value, (int, float)) and math.isfinite(value)
-                    for value in inputs[variable.code]
+                if (
+                    groupcode_is_propagation_prediction(variable.group.code)
+                    and prediction_config.filtering_config is not None
                 ):
-                    raise InvalidInputsException(
-                        f"All values of input {variable.code} must be valid numeric values"
-                    )
+                    # the very first value must not be missing
+                    if not is_numeric(inputs[variable.code][0]):
+                        raise InvalidInputsException(
+                            f"Input {variable.code} must be a valid numeric value"
+                        )
+                else:
+                    if not all(is_numeric(value) for value in inputs[variable.code]):
+                        raise InvalidInputsException(
+                            f"All values of input {variable.code} must be valid numeric values"
+                        )
 
         else:
             # validate if missing value is an Y Variable
@@ -767,6 +797,14 @@ def _validate_propagation_prediction_config(
             + "of the provided list of timestamps."
         )
 
+    if (
+        prediction_config.starting_index != 0
+        and prediction_config.filtering_config is not None
+    ):
+        raise InvalidInputsException(
+            "When a filtering config is provided, the starting index must be 0"
+        )
+
 
 def format_predictions(
     predictions: list[PredictionResponse], model: Model
@@ -844,3 +882,7 @@ def groupcode_is_output(code: str):
 def groupcode_is_timedependent(code: str):
     """Check if the group is time dependent for recipe only"""
     return code in ["Flows", "W", "Inducers"]
+
+
+def is_numeric(value: Optional[Union[float, int]]) -> bool:
+    return isinstance(value, (int, float)) and math.isfinite(value)
