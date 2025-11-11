@@ -16,6 +16,7 @@ from dhl_sdk.authentication import APIKeyAuthentication
 
 if TYPE_CHECKING:
     from openapi_client.models.experiment import Experiment
+    from openapi_client.models.group import Group
     from openapi_client.models.process_format_code import ProcessFormatCode
     from openapi_client.models.process_unit_code import ProcessUnitCode
     from openapi_client.models.product import Product
@@ -77,6 +78,8 @@ class DataHowLabClient:
     def get_projects(
         self,
         search: str | None = None,
+        name: str | None = None,
+        tags: dict[str, str] | None = None,
         process_unit: "ProcessUnitCode | list[ProcessUnitCode] | None" = None,
         process_format: "ProcessFormatCode | list[ProcessFormatCode] | None" = None,
     ) -> "Iterator[Project]":
@@ -87,6 +90,10 @@ class DataHowLabClient:
         ----------
         search : str, optional
             Free-text search to filter projects.
+        name : str, optional
+            Filter by project name (exact match).
+        tags : dict[str, str], optional
+            Filter by tags using key-value pairs (e.g., {"manufacturer": "example", "location": "plant1"}).
         process_unit : ProcessUnitCode | list[ProcessUnitCode], optional
             The process unit code(s) to filter by (e.g., ProcessUnitCode.BR for Bioreactor).
             Available values: BR (Bioreactor), SPC (Spectroscopy), IVT, PTC.
@@ -116,6 +123,8 @@ class DataHowLabClient:
         return paginate(
             self._api.get_projects_api_v1_projects_get,
             search=search,
+            name=name,
+            tags=tags,  # pyright: ignore[reportArgumentType] - OpenAPI generator incorrectly generates Dict[str, Dict[str, StrictStr]] for deepObject parameters
             process_unit=process_unit_list,
             process_format=process_format_list,
         )
@@ -123,6 +132,8 @@ class DataHowLabClient:
     def get_experiments(
         self,
         search: str | None = None,
+        tags: dict[str, str] | None = None,
+        product_id: str | None = None,
         process_unit: "ProcessUnitCode | list[ProcessUnitCode] | None" = None,
         process_format: "ProcessFormatCode | list[ProcessFormatCode] | None" = None,
     ) -> "Iterator[Experiment]":
@@ -132,6 +143,10 @@ class DataHowLabClient:
         ----------
         search : str, optional
             Free-text search to filter experiments.
+        tags : dict[str, str], optional
+            Filter by tags using key-value pairs (e.g., {"manufacturer": "example", "location": "plant1"}).
+        product_id : str, optional
+            Filter by experiment's product ID.
         process_unit : ProcessUnitCode | list[ProcessUnitCode], optional
             The process unit code(s) to filter by (e.g., ProcessUnitCode.BR for Bioreactor).
             Available values: BR (Bioreactor), SPC (Spectroscopy), IVT, PTC.
@@ -161,6 +176,8 @@ class DataHowLabClient:
         return paginate(
             self._api.get_experiments_api_v1_experiments_get,
             search=search,
+            tags=tags,  # pyright: ignore[reportArgumentType] - OpenAPI generator incorrectly generates Dict[str, Dict[str, StrictStr]] for deepObject parameters
+            product_id=product_id,
             process_unit=process_unit_list,
             process_format=process_format_list,
         )
@@ -168,6 +185,9 @@ class DataHowLabClient:
     def get_products(
         self,
         search: str | None = None,
+        name: str | None = None,
+        code: str | None = None,
+        tags: dict[str, str] | None = None,
         process_format: "ProcessFormatCode | list[ProcessFormatCode] | None" = None,
     ) -> "Iterator[Product]":
         """Retrieve the available products for the user
@@ -176,6 +196,12 @@ class DataHowLabClient:
         ----------
         search : str, optional
             Free-text search to filter products.
+        name : str, optional
+            Filter by product name (exact match).
+        code : str, optional
+            Filter by product code (exact match).
+        tags : dict[str, str], optional
+            Filter by tags using key-value pairs (e.g., {"manufacturer": "example", "location": "plant1"}).
         process_format : ProcessFormatCode | list[ProcessFormatCode], optional
             The process format code(s) to filter by (e.g., ProcessFormatCode.MAMMAL).
             Available values: MAMMAL, MICRO, MRNA.
@@ -195,12 +221,21 @@ class DataHowLabClient:
         return paginate(
             self._api.get_products_api_v1_products_get,
             search=search,
+            name=name,
+            code=code,
+            tags=tags,  # pyright: ignore[reportArgumentType] - OpenAPI generator incorrectly generates Dict[str, Dict[str, StrictStr]] for deepObject parameters
             process_format=process_format_list,
         )
 
     def get_variables(
         self,
         search: str | None = None,
+        name: str | None = None,
+        code: str | None = None,
+        tags: dict[str, str] | None = None,
+        group_code: str | None = None,
+        group_id: str | None = None,
+        variant: str | None = None,
     ) -> "Iterator[Variable]":
         """Retrieve the available variables for the user
 
@@ -208,6 +243,18 @@ class DataHowLabClient:
         ----------
         search : str, optional
             Free-text search to filter variables.
+        name : str, optional
+            Filter by variable name (exact match).
+        code : str, optional
+            Filter by variable code (exact match).
+        tags : dict[str, str], optional
+            Filter by tags using key-value pairs (e.g., {"manufacturer": "example", "location": "plant1"}).
+        group_code : str, optional
+            Filter by variable group code.
+        group_id : str, optional
+            Filter by variable group ID.
+        variant : str, optional
+            Filter by variable variant.
 
         Returns
         -------
@@ -217,4 +264,55 @@ class DataHowLabClient:
         return paginate(
             self._api.get_variables_api_v1_variables_get,
             search=search,
+            name=name,
+            code=code,
+            tags=tags,  # pyright: ignore[reportArgumentType] - OpenAPI generator incorrectly generates Dict[str, Dict[str, StrictStr]] for deepObject parameters
+            group_code=group_code,
+            group_id=group_id,
+            variant=variant,
+        )
+
+    def get_variable_groups(
+        self,
+        process_unit: "ProcessUnitCode",
+        process_format: "ProcessFormatCode",
+        search: str | None = None,
+        name: str | None = None,
+        code: str | None = None,
+        tags: dict[str, str] | None = None,
+    ) -> "Iterator[Group]":
+        """Retrieve the available variable groups for the user
+
+        Parameters
+        ----------
+        process_unit : ProcessUnitCode
+            The process unit code to filter by (e.g., ProcessUnitCode.BR for Bioreactor).
+            Available values: BR (Bioreactor), SPC (Spectroscopy), IVT, PTC.
+            This parameter is required.
+        process_format : ProcessFormatCode
+            The process format code to filter by (e.g., ProcessFormatCode.MAMMAL).
+            Available values: MAMMAL, MICRO, MRNA.
+            This parameter is required.
+        search : str, optional
+            Free-text search to filter variable groups.
+        name : str, optional
+            Filter by variable group name (exact match).
+        code : str, optional
+            Filter by variable group code (exact match).
+        tags : dict[str, str], optional
+            Filter by tags using key-value pairs (e.g., {"manufacturer": "example", "location": "plant1"}).
+
+        Returns
+        -------
+        Iterator
+            An iterator of Group objects
+        """
+        return paginate(
+            self._api.get_groups_api_v1_groups_get,
+            search=search,
+            name=name,
+            code=code,
+            tags=tags,  # pyright: ignore[reportArgumentType] - OpenAPI generator incorrectly generates Dict[str, Dict[str, StrictStr]] for deepObject parameters
+            process_unit=process_unit,
+            process_format=process_format,
         )

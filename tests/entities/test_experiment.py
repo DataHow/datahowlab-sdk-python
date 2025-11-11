@@ -81,6 +81,28 @@ class TestExperiment(unittest.TestCase):
         self.assertIsNotNone(experiment.variant)
         self.assertEqual(experiment.variant, "run")
 
+    def test_tags_property(self):
+        api_experiment = create_experiment(tags={"batch": "B001", "location": "lab1"})
+        experiment = Experiment(api_experiment)
+        tags = experiment.tags
+        self.assertIsInstance(tags, dict)
+        self.assertEqual(tags["batch"], "B001")
+        self.assertEqual(tags["location"], "lab1")
+
+    def test_tags_property_empty(self):
+        api_experiment = create_experiment(tags=None)
+        experiment = Experiment(api_experiment)
+        tags = experiment.tags
+        self.assertIsInstance(tags, dict)
+        self.assertEqual(len(tags), 0)
+
+    def test_tags_property_empty_dict(self):
+        api_experiment = create_experiment(tags={})
+        experiment = Experiment(api_experiment)
+        tags = experiment.tags
+        self.assertIsInstance(tags, dict)
+        self.assertEqual(len(tags), 0)
+
     def test_get_data(self):
         mock_value_1 = {"format": "timeseries", "type": "numeric", "values": [5.0, 6.0], "timestamps": [1704067200, 1704070800]}
         mock_value_2 = {"format": "timeseries", "type": "numeric", "values": [10.0, 11.0], "timestamps": [1704067200, 1704070800]}

@@ -83,6 +83,28 @@ class TestModel(unittest.TestCase):
         model = Model(api_model)
         self.assertFalse(model.success)
 
+    def test_tags_property(self):
+        api_model = create_model(tags={"environment": "production", "version": "v2"})
+        model = Model(api_model)
+        tags = model.tags
+        self.assertIsInstance(tags, dict)
+        self.assertEqual(tags["environment"], "production")
+        self.assertEqual(tags["version"], "v2")
+
+    def test_tags_property_empty(self):
+        api_model = create_model(tags=None)
+        model = Model(api_model)
+        tags = model.tags
+        self.assertIsInstance(tags, dict)
+        self.assertEqual(len(tags), 0)
+
+    def test_tags_property_empty_dict(self):
+        api_model = create_model(tags={})
+        model = Model(api_model)
+        tags = model.tags
+        self.assertIsInstance(tags, dict)
+        self.assertEqual(len(tags), 0)
+
     def test_get_variables(self):
         from dhl_sdk.entities.model_variable import ModelVariable
 

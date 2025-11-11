@@ -86,6 +86,28 @@ class TestModelExperiment(unittest.TestCase):
         self.assertIsNotNone(model_experiment.used_for_training)
         self.assertEqual(model_experiment.used_for_training, True)
 
+    def test_tags_property(self):
+        api_model_experiment = create_model_experiment(tags={"batch": "B001", "status": "validated"})
+        model_experiment = ModelExperiment(api_model_experiment, self.model)
+        tags = model_experiment.tags
+        self.assertIsInstance(tags, dict)
+        self.assertEqual(tags["batch"], "B001")
+        self.assertEqual(tags["status"], "validated")
+
+    def test_tags_property_empty(self):
+        api_model_experiment = create_model_experiment(tags=None)
+        model_experiment = ModelExperiment(api_model_experiment, self.model)
+        tags = model_experiment.tags
+        self.assertIsInstance(tags, dict)
+        self.assertEqual(len(tags), 0)
+
+    def test_tags_property_empty_dict(self):
+        api_model_experiment = create_model_experiment(tags={})
+        model_experiment = ModelExperiment(api_model_experiment, self.model)
+        tags = model_experiment.tags
+        self.assertIsInstance(tags, dict)
+        self.assertEqual(len(tags), 0)
+
     def test_get_data(self):
         # Create mock tabularized data
         timeseries_data_1 = TabularizedTimeSeriesData(actual_instance=NumericalTimeSeries(values=[5.0, 6.0]))

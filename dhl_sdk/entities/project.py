@@ -6,6 +6,7 @@ from dhl_sdk._utils import paginate
 
 if TYPE_CHECKING:
     from openapi_client.api.default_api import DefaultApi
+    from openapi_client.models.model_type import ModelType
     from openapi_client.models.project import Project as OpenAPIProject
     from dhl_sdk.entities.model import Model
 
@@ -40,22 +41,52 @@ class Project:
     def process_format(self):
         return self._project.process_format
 
-    # FIXME missing
-    # @property
-    #   def tags(self) -> dict[str, str]:
-    #    return self._project.tags or {}
+    @property
+    def tags(self) -> dict[str, str]:
+        return self._project.tags or {}
 
-    def get_models(self) -> "Iterator[Model]":
+    def get_models(
+        self,
+        search: str | None = None,
+        name: str | None = None,
+        tags: dict[str, str] | None = None,
+        model_type: "ModelType | list[ModelType] | None" = None,
+    ) -> "Iterator[Model]":
         """
         Get all models in this project.
 
-        Returns:
+        Parameters
+        ----------
+        search : str, optional
+            Free-text search to filter models.
+        name : str, optional
+            Filter by model name (exact match).
+        tags : dict[str, str], optional
+            Filter by tags using key-value pairs (e.g., {"manufacturer": "example", "location": "plant1"}).
+        model_type : ModelType | list[ModelType], optional
+            The model type(s) to filter by (e.g., ModelType.PROPAGATION).
+            Available values: PROPAGATION, HISTORICAL, COMBINED.
+            Can be a single value or list.
+
+        Returns
+        -------
+        Iterator
             Iterator of Model instances
         """
         from dhl_sdk.entities.model import Model
 
+        model_type_list: list[ModelType] | None = None
+        if isinstance(model_type, list):
+            model_type_list = model_type
+        elif model_type is not None:
+            model_type_list = [model_type]
+
         for api_model in paginate(
             self._api.get_models_api_v1_projects_project_id_models_get,
             project_id=self._project.id,
+            search=search,
+            name=name,
+            tags=tags,  # pyright: ignore[reportArgumentType] - OpenAPI generator incorrectly generates Dict[str, Dict[str, StrictStr]] for deepObject parameters
+            model_type=model_type_list,
         ):
             yield Model(api_model)

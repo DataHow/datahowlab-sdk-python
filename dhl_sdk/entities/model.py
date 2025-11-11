@@ -64,6 +64,10 @@ class Model:
         return self._model.step_size
 
     @property
+    def tags(self) -> dict[str, str]:
+        return self._model.tags or {}
+
+    @property
     def success(self) -> bool:
         """Returns True if model status is 'success'."""
         return self.status == "success"

@@ -59,6 +59,18 @@ class Experiment:
     def variant(self) -> str:
         return self._experiment.variant.value
 
+    @property
+    def tags(self) -> dict[str, str]:
+        """
+        Tags associated with the experiment.
+
+        Returns
+        -------
+        dict[str, str]
+            Dictionary of tag key-value pairs. Returns empty dict if no tags.
+        """
+        return self._experiment.tags or {}
+
     def get_data(self, api: "DefaultApi") -> dict[str, "RawExperimentDataInputValue"]:
         return api.get_experiment_data_api_v1_experiments_experiment_id_data_get(experiment_id=self.id)
 

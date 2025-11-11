@@ -51,6 +51,18 @@ class ModelExperiment:
     def used_for_training(self) -> bool | None:
         return self._model_experiment.used_for_training
 
+    @property
+    def tags(self) -> dict[str, str]:
+        """
+        Tags associated with the model experiment.
+
+        Returns
+        -------
+        dict[str, str]
+            Dictionary of tag key-value pairs. Returns empty dict if no tags.
+        """
+        return self._model_experiment.tags or {}
+
     def get_data(self, api: "DefaultApi") -> "TabularizedExperimentData":
         """
         Retrieve experiment data in tabularized format.

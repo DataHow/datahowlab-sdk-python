@@ -54,3 +54,15 @@ class ModelVariable:
     @property
     def disposition(self) -> str:
         return self._model_variable.disposition
+
+    @property
+    def tags(self) -> dict[str, str]:
+        """
+        Tags associated with the model variable.
+
+        Returns
+        -------
+        dict[str, str]
+            Dictionary of tag key-value pairs. Returns empty dict if no tags.
+        """
+        return self._model_variable.tags or {}
