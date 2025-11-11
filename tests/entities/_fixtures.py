@@ -1,5 +1,6 @@
 from typing import Any, cast
 
+from openapi_client.models.experiment import Experiment as OpenAPIExperiment
 from openapi_client.models.experiment_variant import ExperimentVariant
 from openapi_client.models.model import Model as OpenAPIModel
 from openapi_client.models.model_experiment import ModelExperiment as OpenAPIModelExperiment
@@ -83,6 +84,39 @@ def create_variable(**overrides: Any) -> OpenAPIVariable:
     defaults.update(cast(dict[str, object], overrides))
     return OpenAPIVariable.model_validate(defaults)
 
+
+def create_experiment(**overrides: Any) -> OpenAPIExperiment:
+    defaults: dict[str, object] = {
+        "id": EXPERIMENT_ID,
+        "displayName": "Test Experiment",
+        "productId": PRODUCT_ID,
+        "variableIds": [VAR_1_ID, VAR_2_ID],
+        "description": "Test experiment description",
+        "startTime": "2024-01-01T00:00:00Z",
+        "variant": ExperimentVariant.RUN,
+    }
+    defaults.update(cast(dict[str, object], overrides))
+    return OpenAPIExperiment.model_validate(defaults)
+
+
+def create_raw_experiment_data_value(values: list[Any], timestamps: list[int], data_type: str = "numeric"):
+    """Create a RawExperimentDataInputValue with proper OpenAPI structure."""
+    from openapi_client.models.raw_experiment_data_input_value import RawExperimentDataInputValue
+    from openapi_client.models.raw_time_series_data import RawTimeSeriesData
+    from openapi_client.models.numerical_time_series_with_timestamps import NumericalTimeSeriesWithTimestamps
+    from openapi_client.models.categorical_time_series_with_timestamps import CategoricalTimeSeriesWithTimestamps
+    from openapi_client.models.logical_time_series_with_timestamps import LogicalTimeSeriesWithTimestamps
+
+    if data_type == "numeric":
+        ts = NumericalTimeSeriesWithTimestamps(values=values, timestamps=timestamps)
+    elif data_type == "categorical":
+        ts = CategoricalTimeSeriesWithTimestamps(values=values, timestamps=timestamps)
+    elif data_type == "logical":
+        ts = LogicalTimeSeriesWithTimestamps(values=values, timestamps=timestamps)
+    else:
+        raise ValueError(f"Unknown data_type: {data_type}")
+
+    return RawExperimentDataInputValue(actual_instance=RawTimeSeriesData(actual_instance=ts))
 
 def create_model_experiment(**overrides: Any) -> OpenAPIModelExperiment:
     defaults: dict[str, object] = {
