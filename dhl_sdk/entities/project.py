@@ -7,7 +7,7 @@ from dhl_sdk._utils import paginate
 if TYPE_CHECKING:
     from openapi_client.api.default_api import DefaultApi
     from openapi_client.models.project import Project as OpenAPIProject
-    from openapi_client.models.model import Model as OpenAPIModel
+    from dhl_sdk.entities.model import Model
 
 
 @final
@@ -45,8 +45,17 @@ class Project:
     #   def tags(self) -> dict[str, str]:
     #    return self._project.tags or {}
 
-    def get_models(self) -> "Iterator[OpenAPIModel]":
-        return paginate(
+    def get_models(self) -> "Iterator[Model]":
+        """
+        Get all models in this project.
+
+        Returns:
+            Iterator of Model instances
+        """
+        from dhl_sdk.entities.model import Model
+
+        for api_model in paginate(
             self._api.get_models_api_v1_projects_project_id_models_get,
             project_id=self._project.id,
-        )
+        ):
+            yield Model(api_model)

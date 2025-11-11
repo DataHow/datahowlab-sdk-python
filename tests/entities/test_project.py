@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from openapi_client.models.project import Project as OpenAPIProject
 
+from dhl_sdk.entities.model import Model
 from dhl_sdk.entities.project import Project
 from tests.entities._fixtures import create_model, create_project
 
@@ -67,6 +68,8 @@ class TestProject(unittest.TestCase):
         models = list(project.get_models())
 
         self.assertEqual(len(models), 2)
+        self.assertIsInstance(models[0], Model)
+        self.assertIsInstance(models[1], Model)
         self.assertEqual(models[0].id, mock_model1.id)
         self.assertEqual(models[1].id, mock_model2.id)
 

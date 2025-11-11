@@ -3,13 +3,18 @@ from typing import Any, cast
 from openapi_client.models.experiment import Experiment as OpenAPIExperiment
 from openapi_client.models.experiment_variant import ExperimentVariant
 from openapi_client.models.model import Model as OpenAPIModel
+from openapi_client.models.model_experiment import ModelExperiment as OpenAPIModelExperiment
 from openapi_client.models.model_status import ModelStatus
 from openapi_client.models.model_type import ModelType
+from openapi_client.models.model_variable import ModelVariable as OpenAPIModelVariable
 from openapi_client.models.product import Product as OpenAPIProduct
 from openapi_client.models.process_format_code import ProcessFormatCode
 from openapi_client.models.process_unit_code import ProcessUnitCode
 from openapi_client.models.project import Project as OpenAPIProject
 from openapi_client.models.variable import Variable as OpenAPIVariable
+from openapi_client.models.variable_input_type import VariableInputType
+from openapi_client.models.variable_output_type import VariableOutputType
+from openapi_client.models.variable_variant import VariableVariant
 from openapi_client.models.variantdetails import Variantdetails
 
 MODEL_ID = "a67f42c6-c77d-437a-a5bf-3090aa0d6ad9"
@@ -112,3 +117,33 @@ def create_raw_experiment_data_value(values: list[Any], timestamps: list[int], d
         raise ValueError(f"Unknown data_type: {data_type}")
 
     return RawExperimentDataInputValue(actual_instance=RawTimeSeriesData(actual_instance=ts))
+
+def create_model_experiment(**overrides: Any) -> OpenAPIModelExperiment:
+    defaults: dict[str, object] = {
+        "id": EXPERIMENT_ID,
+        "displayName": "Test Model Experiment",
+        "productId": PRODUCT_ID,
+        "description": "Test model experiment description",
+        "startTime": "2024-01-01T00:00:00Z",
+        "variant": ExperimentVariant.RUN,
+        "usedForTraining": True,
+    }
+    defaults.update(cast(dict[str, object], overrides))
+    return OpenAPIModelExperiment.model_validate(defaults)
+
+
+def create_model_variable(**overrides: Any) -> OpenAPIModelVariable:
+    defaults: dict[str, object] = {
+        "id": VARIABLE_ID,
+        "name": "Test Model Variable",
+        "code": "TEST_VAR",
+        "description": "Test model variable description",
+        "measurementUnit": "g/L",
+        "group": "X",
+        "variant": VariableVariant.NUMERIC,
+        "inputType": VariableInputType.SCALAR,
+        "outputType": VariableOutputType.FULLTIMESERIES,
+        "disposition": "input",
+    }
+    defaults.update(cast(dict[str, object], overrides))
+    return OpenAPIModelVariable.model_validate(defaults)
