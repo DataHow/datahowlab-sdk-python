@@ -1,7 +1,11 @@
-from typing import TYPE_CHECKING
+# Disable import cycle check: Product and Client/Experiment have bidirectional references
+# (those are only relevant for type checking)
+# pyright: reportImportCycles=false
+from typing import TYPE_CHECKING, final
 from typing_extensions import override
 
 if TYPE_CHECKING:
+    from dhl_sdk import DataHowLabClient
     from openapi_client.api.default_api import DefaultApi
     from openapi_client.models.process_format_code import ProcessFormatCode
     from openapi_client.models.product import Product as OpenAPIProduct
@@ -9,11 +13,11 @@ if TYPE_CHECKING:
     from openapi_client.models.raw_experiment_data_input_value import RawExperimentDataInputValue
 
 
+@final
 class Product:
-    _product: "OpenAPIProduct"
-
-    def __init__(self, product: "OpenAPIProduct"):
+    def __init__(self, product: "OpenAPIProduct", api: "DefaultApi"):
         self._product = product
+        self._api = api
 
     @override
     def __str__(self) -> str:
@@ -79,6 +83,6 @@ class ProductRequest:
         )
         return ProductRequest(product_create)
 
-    def create(self, api: "DefaultApi") -> Product:
-        created_product = api.create_product_api_v1_products_post(product_create=self._product_create)
-        return Product(created_product)
+    def create(self, client: "DataHowLabClient") -> Product:
+        created_product = client.api.create_product_api_v1_products_post(product_create=self._product_create)
+        return Product(created_product, client.api)

@@ -1,3 +1,6 @@
+# Disable import cycle check: __init__ imports client which imports entities which may import client
+# (those are only relevant for type checking)
+# pyright: reportImportCycles=false
 """DHL SDK for Python"""
 
 __all__ = [

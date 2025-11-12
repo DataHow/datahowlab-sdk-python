@@ -1,17 +1,16 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, final
 from typing_extensions import override
 
 if TYPE_CHECKING:
-    from openapi_client.api.default_api import DefaultApi
+    from dhl_sdk.client import DataHowLabClient
     from openapi_client.models.variable import Variable as OpenAPIVariable
     from openapi_client.models.variable_create import VariableCreate
     from openapi_client.models.variantdetails import Variantdetails
     from openapi_client.models.variantdetails1 import Variantdetails1
 
 
+@final
 class Variable:
-    _variable: "OpenAPIVariable"
-
     def __init__(self, variable: "OpenAPIVariable"):
         self._variable = variable
 
@@ -85,6 +84,6 @@ class VariableRequest:
         )
         return VariableRequest(variable_create)
 
-    def create(self, api: "DefaultApi") -> Variable:
-        created_variable = api.create_variable_api_v1_variables_post(variable_create=self._variable_create)
+    def create(self, client: "DataHowLabClient") -> Variable:
+        created_variable = client.api.create_variable_api_v1_variables_post(variable_create=self._variable_create)
         return Variable(created_variable)

@@ -119,6 +119,8 @@ class TestVariableRequest(unittest.TestCase):
 
     def test_create(self):
         mock_api = Mock()
+        mock_client = Mock()
+        mock_client.api = mock_api
         created_variable = create_variable(
             id="var-456",
             name="Created Variable",
@@ -137,7 +139,7 @@ class TestVariableRequest(unittest.TestCase):
             group="Process",
             variant_details=Variantdetails1(),
         )
-        variable = request.create(mock_api)
+        variable = request.create(mock_client)
 
         self.assertIsInstance(variable, Variable)
         self.assertEqual(variable.id, "var-456")

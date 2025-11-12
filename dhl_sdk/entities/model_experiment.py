@@ -1,5 +1,5 @@
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, final
 from typing_extensions import override
 
 if TYPE_CHECKING:
@@ -11,13 +11,12 @@ if TYPE_CHECKING:
     from dhl_sdk.entities.model_variable import ModelVariable
 
 
+@final
 class ModelExperiment:
-    _model_experiment: "OpenAPIModelExperiment"
-    _model: "Model"
-
-    def __init__(self, model_experiment: "OpenAPIModelExperiment", model: "Model"):
+    def __init__(self, model_experiment: "OpenAPIModelExperiment", model: "Model", api: "DefaultApi"):
         self._model_experiment = model_experiment
         self._model = model
+        self._api = api
 
     @override
     def __str__(self) -> str:
@@ -63,18 +62,18 @@ class ModelExperiment:
         """
         return self._model_experiment.tags or {}
 
-    def get_data(self, api: "DefaultApi") -> "TabularizedExperimentData":
+    def get_data(self) -> "TabularizedExperimentData":
         """
         Retrieve experiment data in tabularized format.
 
         Returns:
             TabularizedExperimentData with shared timestamps at top level and data per variable
         """
-        return api.get_model_experiment_data_api_v1_models_model_id_experiments_experiment_id_data_get(
+        return self._api.get_model_experiment_data_api_v1_models_model_id_experiments_experiment_id_data_get(
             model_id=self._model.id, experiment_id=self.id
         )
 
-    def get_data_compat(self, api: "DefaultApi") -> dict[str, dict[str, Any]]:  # pyright: ignore[reportExplicitAny] - Legacy compatibility method returns dynamic untyped data
+    def get_data_compat(self) -> dict[str, dict[str, Any]]:  # pyright: ignore[reportExplicitAny] - Legacy compatibility method returns dynamic untyped data
         """
         Retrieve experiment data in compat format (legacy format).
 
@@ -88,8 +87,8 @@ class ModelExperiment:
         """
         from openapi_client.models.scalars_data import ScalarsData
 
-        raw_data = self.get_data(api)
-        variables = self.get_variables(api)
+        raw_data = self.get_data()
+        variables = self.get_variables()
 
         # Create a mapping from variable ID to variable
         var_id_to_var = {var.id: var for var in variables}
@@ -122,14 +121,14 @@ class ModelExperiment:
 
         return result
 
-    def get_variables(self, api: "DefaultApi") -> "Iterator[ModelVariable]":
+    def get_variables(self) -> "Iterator[ModelVariable]":
         """Get all variables associated with this model experiment."""
         # Delegate to the Model's get_variables method
-        return self._model.get_variables(api)
+        return self._model.get_variables()
 
-    def get_product(self, api: "DefaultApi") -> "Product":
+    def get_product(self) -> "Product":
         """Get the product associated with this model experiment."""
         from dhl_sdk.entities.product import Product
 
-        api_product = api.get_product_by_id_api_v1_products_product_id_get(product_id=self.product_id)
-        return Product(api_product)
+        api_product = self._api.get_product_by_id_api_v1_products_product_id_get(product_id=self.product_id)
+        return Product(api_product, self._api)

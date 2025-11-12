@@ -1,3 +1,6 @@
+# Disable import cycle check: Project and Model have bidirectional references through ModelExperiment/Product
+# (those are only relevant for type checking)
+# pyright: reportImportCycles=false
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, final
 from typing_extensions import override
@@ -89,4 +92,4 @@ class Project:
             tags=tags,  # pyright: ignore[reportArgumentType] - OpenAPI generator incorrectly generates Dict[str, Dict[str, StrictStr]] for deepObject parameters
             model_type=model_type_list,
         ):
-            yield Model(api_model)
+            yield Model(api_model, self._api)

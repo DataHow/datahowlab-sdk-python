@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, final
 from typing_extensions import override
 
 if TYPE_CHECKING:
@@ -6,6 +6,7 @@ if TYPE_CHECKING:
     from openapi_client.models.variable_variant import VariableVariant
 
 
+@final
 class VariableGroup:
     """
     Wrapper for OpenAPI Group entity (Variable Groups).
@@ -13,8 +14,6 @@ class VariableGroup:
     Variable groups represent collections of related variables with consistent
     variants across process units and formats.
     """
-
-    _group: "OpenAPIGroup"
 
     def __init__(self, group: "OpenAPIGroup"):
         self._group = group

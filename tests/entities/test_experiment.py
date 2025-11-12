@@ -33,28 +33,34 @@ class TestExperiment(unittest.TestCase):
         )
 
     def test_init(self):
-        experiment = Experiment(self.api_experiment)
+        mock_api = Mock()
+        experiment = Experiment(self.api_experiment, mock_api)
         self.assertIsNotNone(experiment)
 
     def test_str(self):
-        experiment = Experiment(self.api_experiment)
+        mock_api = Mock()
+        experiment = Experiment(self.api_experiment, mock_api)
         result = str(experiment)
         self.assertEqual(result, "Experiment(Test Experiment)")
 
     def test_id_property(self):
-        experiment = Experiment(self.api_experiment)
+        mock_api = Mock()
+        experiment = Experiment(self.api_experiment, mock_api)
         self.assertEqual(experiment.id, EXPERIMENT_ID)
 
     def test_display_name_property(self):
-        experiment = Experiment(self.api_experiment)
+        mock_api = Mock()
+        experiment = Experiment(self.api_experiment, mock_api)
         self.assertEqual(experiment.display_name, "Test Experiment")
 
     def test_product_id_property(self):
-        experiment = Experiment(self.api_experiment)
+        mock_api = Mock()
+        experiment = Experiment(self.api_experiment, mock_api)
         self.assertEqual(experiment.product_id, PRODUCT_ID)
 
     def test_variable_ids_property(self):
-        experiment = Experiment(self.api_experiment)
+        mock_api = Mock()
+        experiment = Experiment(self.api_experiment, mock_api)
         self.assertIsNotNone(experiment.variable_ids)
         self.assertIsInstance(experiment.variable_ids, list)
         self.assertEqual(len(experiment.variable_ids), 3)
@@ -63,42 +69,49 @@ class TestExperiment(unittest.TestCase):
         self.assertIn(VAR_3_ID, experiment.variable_ids)
 
     def test_description_property(self):
-        experiment = Experiment(self.api_experiment)
+        mock_api = Mock()
+        experiment = Experiment(self.api_experiment, mock_api)
         self.assertEqual(experiment.description, "A test experiment")
 
     def test_start_time_property(self):
-        experiment = Experiment(self.api_experiment)
+        mock_api = Mock()
+        experiment = Experiment(self.api_experiment, mock_api)
         self.assertIsNotNone(experiment.start_time)
         self.assertEqual(experiment.start_time, "2024-01-01T00:00:00Z")
 
     def test_start_time_property_none(self):
+        mock_api = Mock()
         self.api_experiment.start_time = None
-        experiment = Experiment(self.api_experiment)
+        experiment = Experiment(self.api_experiment, mock_api)
         self.assertIsNone(experiment.start_time)
 
     def test_variant_property(self):
-        experiment = Experiment(self.api_experiment)
+        mock_api = Mock()
+        experiment = Experiment(self.api_experiment, mock_api)
         self.assertIsNotNone(experiment.variant)
         self.assertEqual(experiment.variant, "run")
 
     def test_tags_property(self):
+        mock_api = Mock()
         api_experiment = create_experiment(tags={"batch": "B001", "location": "lab1"})
-        experiment = Experiment(api_experiment)
+        experiment = Experiment(api_experiment, mock_api)
         tags = experiment.tags
         self.assertIsInstance(tags, dict)
         self.assertEqual(tags["batch"], "B001")
         self.assertEqual(tags["location"], "lab1")
 
     def test_tags_property_empty(self):
+        mock_api = Mock()
         api_experiment = create_experiment(tags=None)
-        experiment = Experiment(api_experiment)
+        experiment = Experiment(api_experiment, mock_api)
         tags = experiment.tags
         self.assertIsInstance(tags, dict)
         self.assertEqual(len(tags), 0)
 
     def test_tags_property_empty_dict(self):
+        mock_api = Mock()
         api_experiment = create_experiment(tags={})
-        experiment = Experiment(api_experiment)
+        experiment = Experiment(api_experiment, mock_api)
         tags = experiment.tags
         self.assertIsInstance(tags, dict)
         self.assertEqual(len(tags), 0)
@@ -114,8 +127,8 @@ class TestExperiment(unittest.TestCase):
         mock_api = Mock()
         mock_api.get_experiment_data_api_v1_experiments_experiment_id_data_get.return_value = mock_data
 
-        experiment = Experiment(self.api_experiment)
-        result = experiment.get_data(mock_api)
+        experiment = Experiment(self.api_experiment, mock_api)
+        result = experiment.get_data()
 
         self.assertEqual(result, mock_data)
         mock_api.get_experiment_data_api_v1_experiments_experiment_id_data_get.assert_called_once_with(experiment_id=EXPERIMENT_ID)
@@ -148,8 +161,8 @@ class TestExperiment(unittest.TestCase):
         mock_api.get_experiment_data_api_v1_experiments_experiment_id_data_get.return_value = mock_data
         mock_api.get_variable_by_id_api_v1_variables_variable_id_get.side_effect = get_variable_side_effect
 
-        experiment = Experiment(self.api_experiment)
-        result = experiment.get_data_compat(mock_api)
+        experiment = Experiment(self.api_experiment, mock_api)
+        result = experiment.get_data_compat()
 
         self.assertIsNotNone(result)
         self.assertIsInstance(result, dict)
@@ -180,8 +193,8 @@ class TestExperiment(unittest.TestCase):
 
         mock_api.get_variable_by_id_api_v1_variables_variable_id_get.side_effect = get_variable_side_effect
 
-        experiment = Experiment(self.api_experiment)
-        result = experiment.get_variables(mock_api)
+        experiment = Experiment(self.api_experiment, mock_api)
+        result = experiment.get_variables()
 
         self.assertIsNotNone(result)
         self.assertIsInstance(result, list)
@@ -199,8 +212,8 @@ class TestExperiment(unittest.TestCase):
         mock_product = create_product(id=PRODUCT_ID, name="Test Product", code="TEST_PROD")
         mock_api.get_product_by_id_api_v1_products_product_id_get.return_value = mock_product
 
-        experiment = Experiment(self.api_experiment)
-        result = experiment.get_product(mock_api)
+        experiment = Experiment(self.api_experiment, mock_api)
+        result = experiment.get_product()
 
         self.assertIsNotNone(result)
         self.assertIsInstance(result, Product)
@@ -214,7 +227,8 @@ class TestExperimentRequest(unittest.TestCase):
 
     def setUp(self):
         api_product = create_product(id=PRODUCT_ID, name="Test Product", code="TEST_PROD")
-        self.product = Product(api_product)
+        mock_api = Mock()
+        self.product = Product(api_product, mock_api)
 
     def test_new(self):
         request = ExperimentRequest.new(
@@ -313,6 +327,8 @@ class TestExperimentRequest(unittest.TestCase):
 
     def test_create(self):
         mock_api = Mock()
+        mock_client = Mock()
+        mock_client.api = mock_api
         created_experiment = create_experiment(
             id="exp-456",
             displayName="TEST_PROD-Created Experiment",
@@ -330,7 +346,7 @@ class TestExperimentRequest(unittest.TestCase):
             end_time=datetime(2024, 1, 1, 12, 0, 0),
             data={VAR_1_ID: create_raw_experiment_data_value([5.5, 6.5], [1704067200, 1704070800])},
         )
-        experiment = request.create(mock_api)
+        experiment = request.create(mock_client)
 
         self.assertIsInstance(experiment, Experiment)
         self.assertEqual(experiment.id, "exp-456")
@@ -339,6 +355,8 @@ class TestExperimentRequest(unittest.TestCase):
 
     def test_create_with_all_fields(self):
         mock_api = Mock()
+        mock_client = Mock()
+        mock_client.api = mock_api
         created_experiment = create_experiment(
             id="exp-789",
             displayName="TEST_PROD-Full Experiment-B",
@@ -362,7 +380,7 @@ class TestExperimentRequest(unittest.TestCase):
             tags={"tag1": "value1", "tag2": "value2"},
             extra={"extra1": "value1"},
         )
-        experiment = request.create(mock_api)
+        experiment = request.create(mock_client)
 
         self.assertIsInstance(experiment, Experiment)
         self.assertEqual(experiment.id, "exp-789")

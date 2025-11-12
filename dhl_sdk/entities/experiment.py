@@ -1,8 +1,12 @@
+# Disable import cycle check: Experiment and Product/Client have bidirectional references
+# (those are only relevant for type checking)
+# pyright: reportImportCycles=false
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, final
 from typing_extensions import override, TypedDict
 
 if TYPE_CHECKING:
+    from dhl_sdk import DataHowLabClient
     from openapi_client.api.default_api import DefaultApi
     from openapi_client.models.experiment import Experiment as OpenAPIExperiment
     from openapi_client.models.experiment_create import ExperimentCreate
@@ -19,13 +23,12 @@ class CompatDataValue(TypedDict):
     timestamps: list[Any]  # pyright: ignore[reportExplicitAny] - OpenAPI uses StrictInt which doesn't align with standard int
 
 
+@final
 class Experiment:
-    _experiment: "OpenAPIExperiment"
-    _cached_variables: list["Variable"] | None
-
-    def __init__(self, experiment: "OpenAPIExperiment"):
+    def __init__(self, experiment: "OpenAPIExperiment", api: "DefaultApi"):
         self._experiment = experiment
         self._cached_variables = None
+        self._api = api
 
     @override
     def __str__(self) -> str:
@@ -71,12 +74,12 @@ class Experiment:
         """
         return self._experiment.tags or {}
 
-    def get_data(self, api: "DefaultApi") -> dict[str, "RawExperimentDataInputValue"]:
-        return api.get_experiment_data_api_v1_experiments_experiment_id_data_get(experiment_id=self.id)
+    def get_data(self) -> dict[str, "RawExperimentDataInputValue"]:
+        return self._api.get_experiment_data_api_v1_experiments_experiment_id_data_get(experiment_id=self.id)
 
-    def get_data_compat(self, api: "DefaultApi") -> dict[str, CompatDataValue | None]:
-        raw_data = self.get_data(api)
-        variables = self.get_variables(api)
+    def get_data_compat(self) -> dict[str, CompatDataValue | None]:
+        raw_data = self.get_data()
+        variables = self.get_variables()
 
         # Create a mapping from variable ID to variable code
         var_id_to_code = {var.id: var.code for var in variables}
@@ -99,7 +102,7 @@ class Experiment:
 
         return result
 
-    def get_variables(self, api: "DefaultApi") -> list["Variable"]:
+    def get_variables(self) -> list["Variable"]:
         from dhl_sdk.entities.variable import Variable
 
         if self._cached_variables is not None:
@@ -107,16 +110,16 @@ class Experiment:
 
         variables: list["Variable"] = []
         for variable_id in self.variable_ids:
-            api_variable = api.get_variable_by_id_api_v1_variables_variable_id_get(variable_id=variable_id)
+            api_variable = self._api.get_variable_by_id_api_v1_variables_variable_id_get(variable_id=variable_id)
             variables.append(Variable(api_variable))
         self._cached_variables = variables
         return variables
 
-    def get_product(self, api: "DefaultApi") -> "Product":
+    def get_product(self) -> "Product":
         from dhl_sdk.entities.product import Product
 
-        api_product = api.get_product_by_id_api_v1_products_product_id_get(product_id=self.product_id)
-        return Product(api_product)
+        api_product = self._api.get_product_by_id_api_v1_products_product_id_get(product_id=self.product_id)
+        return Product(api_product, self._api)
 
 
 class ExperimentRequest:
@@ -233,6 +236,6 @@ class ExperimentRequest:
         )
         return ExperimentRequest(experiment_create)
 
-    def create(self, api: "DefaultApi") -> Experiment:
-        created_experiment = api.create_experiment_api_v1_experiments_post(experiment_create=self._experiment_create)
-        return Experiment(created_experiment)
+    def create(self, client: "DataHowLabClient") -> Experiment:
+        created_experiment = client.api.create_experiment_api_v1_experiments_post(experiment_create=self._experiment_create)
+        return Experiment(created_experiment, client.api)

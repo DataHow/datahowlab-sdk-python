@@ -16,91 +16,107 @@ from tests.entities._fixtures import (
 
 class TestModel(unittest.TestCase):
     def test_init(self):
+        mock_api = Mock()
         api_model = create_model()
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
         self.assertIsNotNone(model)
 
     def test_str(self):
+        mock_api = Mock()
         api_model = create_model(name="Test Model", type="historical")
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
         result = str(model)
         self.assertEqual(result, "Model(Test Model, historical)")
 
     def test_id_property(self):
+        mock_api = Mock()
         api_model = create_model(id=MODEL_ID)
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
         self.assertEqual(model.id, MODEL_ID)
 
     def test_name_property(self):
+        mock_api = Mock()
         api_model = create_model(name="My Model")
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
         self.assertEqual(model.name, "My Model")
 
     def test_description_property(self):
+        mock_api = Mock()
         api_model = create_model(description="Model description")
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
         self.assertEqual(model.description, "Model description")
 
     def test_status_property(self):
+        mock_api = Mock()
         api_model = create_model()
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
         self.assertEqual(model.status, "success")
 
     def test_type_property(self):
+        mock_api = Mock()
         api_model = create_model()
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
         self.assertEqual(model.type, "historical")
 
     def test_project_id_property(self):
+        mock_api = Mock()
         api_model = create_model(projectId="project-123")
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
         self.assertEqual(model.project_id, "project-123")
 
     def test_dataset_id_property(self):
+        mock_api = Mock()
         api_model = create_model(datasetId="dataset-456")
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
         self.assertEqual(model.dataset_id, "dataset-456")
 
     def test_variant_property(self):
+        mock_api = Mock()
         api_model = create_model(variant="Stepwise GP")
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
         self.assertEqual(model.variant, "Stepwise GP")
 
     def test_step_size_property(self):
+        mock_api = Mock()
         api_model = create_model(stepSize=3600)
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
         self.assertEqual(model.step_size, 3600)
 
     def test_success_property_true(self):
+        mock_api = Mock()
         api_model = create_model()  # Default status is SUCCESS
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
         self.assertTrue(model.success)
 
     def test_success_property_false(self):
         from openapi_client.models.model_status import ModelStatus
 
+        mock_api = Mock()
         api_model = create_model(status=ModelStatus.FAILED)
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
         self.assertFalse(model.success)
 
     def test_tags_property(self):
+        mock_api = Mock()
         api_model = create_model(tags={"environment": "production", "version": "v2"})
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
         tags = model.tags
         self.assertIsInstance(tags, dict)
         self.assertEqual(tags["environment"], "production")
         self.assertEqual(tags["version"], "v2")
 
     def test_tags_property_empty(self):
+        mock_api = Mock()
         api_model = create_model(tags=None)
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
         tags = model.tags
         self.assertIsInstance(tags, dict)
         self.assertEqual(len(tags), 0)
 
     def test_tags_property_empty_dict(self):
+        mock_api = Mock()
         api_model = create_model(tags={})
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
         tags = model.tags
         self.assertIsInstance(tags, dict)
         self.assertEqual(len(tags), 0)
@@ -115,8 +131,8 @@ class TestModel(unittest.TestCase):
         mock_api.get_model_variables_api_v1_models_model_id_variables_get.return_value = [mock_var_1, mock_var_2]
 
         api_model = create_model(id=MODEL_ID)
-        model = Model(api_model)
-        result = list(model.get_variables(mock_api))
+        model = Model(api_model, mock_api)
+        result = list(model.get_variables())
 
         self.assertIsNotNone(result)
         self.assertIsInstance(result, list)
@@ -139,9 +155,9 @@ class TestModel(unittest.TestCase):
         ]
 
         api_model = create_model(id=MODEL_ID)
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
 
-        result = list(model.get_variables(mock_api))
+        result = list(model.get_variables())
 
         # Should get all variables across both pages
         self.assertEqual(len(result), 15)
@@ -158,8 +174,8 @@ class TestModel(unittest.TestCase):
         mock_api.get_model_experiments_api_v1_models_model_id_experiments_get.return_value = [mock_exp_1, mock_exp_2]
 
         api_model = create_model(id=MODEL_ID)
-        model = Model(api_model)
-        result = list(model.get_experiments(mock_api))
+        model = Model(api_model, mock_api)
+        result = list(model.get_experiments())
 
         self.assertIsNotNone(result)
         self.assertIsInstance(result, list)
@@ -184,9 +200,9 @@ class TestModel(unittest.TestCase):
         ]
 
         api_model = create_model(id=MODEL_ID)
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
 
-        result = list(model.get_experiments(mock_api))
+        result = list(model.get_experiments())
 
         # Should get all experiments across both pages
         self.assertEqual(len(result), 15)
@@ -205,7 +221,7 @@ class TestModel(unittest.TestCase):
 
         mock_api = Mock()
         api_model = create_model(id=MODEL_ID)
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
 
         # Create inputs
         inputs = {
@@ -221,7 +237,7 @@ class TestModel(unittest.TestCase):
         mock_api.model_prediction_api_v1_models_model_id_predict_post.return_value = mock_response
 
         # Call predict
-        result = model.predict(mock_api, inputs, timestamps)
+        result = model.predict(inputs, timestamps)
 
         # Verify
         self.assertIsInstance(result, PredictionResponse)
@@ -239,7 +255,7 @@ class TestModel(unittest.TestCase):
 
         mock_api = Mock()
         api_model = create_model(id=MODEL_ID)
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
 
         inputs = {
             VAR_1_ID: TabularizedDataModelInput(TabularizedTimeSeriesData(NumericalTimeSeries(values=[1.0, 2.0, 3.0]))),
@@ -250,7 +266,7 @@ class TestModel(unittest.TestCase):
         mock_response = PredictionResponse(timestamps=timestamps, predictions={})
         mock_api.model_prediction_api_v1_models_model_id_predict_post.return_value = mock_response
 
-        _ = model.predict(mock_api, inputs, timestamps, config)
+        _ = model.predict(inputs, timestamps, config)
 
         # Verify config was passed
         call_args = mock_api.model_prediction_api_v1_models_model_id_predict_post.call_args
@@ -268,7 +284,7 @@ class TestModel(unittest.TestCase):
 
         mock_api = Mock()
         api_model = create_model(id=MODEL_ID, status=ModelStatus.FAILED, name="Failed Model")
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
 
         inputs = {
             VAR_1_ID: TabularizedDataModelInput(TabularizedTimeSeriesData(NumericalTimeSeries(values=[1.0]))),
@@ -276,7 +292,7 @@ class TestModel(unittest.TestCase):
         timestamps = [0]
 
         with self.assertRaises(ValueError) as context:
-            _ = model.predict(mock_api, inputs, timestamps)
+            _ = model.predict(inputs, timestamps)
 
         self.assertIn("Failed Model", str(context.exception))
         self.assertIn("not ready for prediction", str(context.exception))
@@ -303,13 +319,13 @@ class TestModel(unittest.TestCase):
         mock_api.model_prediction_api_v1_models_model_id_predict_post.return_value = mock_response
 
         api_model = create_model(id=MODEL_ID)
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
 
         # Legacy format: use variable codes
         inputs = {"Temperature": [25.0, 26.0, 27.0]}
         timestamps = [0, 60, 120]
 
-        result = model.predict_compat(mock_api, inputs, timestamps)
+        result = model.predict_compat(inputs, timestamps)
 
         # Verify legacy format output
         self.assertIsInstance(result, dict)
@@ -337,13 +353,13 @@ class TestModel(unittest.TestCase):
         mock_api.model_prediction_api_v1_models_model_id_predict_post.return_value = mock_response
 
         api_model = create_model(id=MODEL_ID)
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
 
         # Single-element list treated as scalar
         inputs = {"pH": [7.0]}
         timestamps = [0]
 
-        result = model.predict_compat(mock_api, inputs, timestamps)
+        result = model.predict_compat(inputs, timestamps)
 
         # Scalar output converted to single-element list
         self.assertIsInstance(result, dict)
@@ -370,12 +386,12 @@ class TestModel(unittest.TestCase):
         mock_api.model_prediction_api_v1_models_model_id_predict_post.return_value = mock_response
 
         api_model = create_model(id=MODEL_ID)
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
 
         inputs = {"FeedType": ["TypeA", "TypeA", "TypeB"]}
         timestamps = [0, 60, 120]
 
-        result = model.predict_compat(mock_api, inputs, timestamps)
+        result = model.predict_compat(inputs, timestamps)
 
         self.assertIn("Status", result)
         self.assertEqual(result["Status"], ["Good", "Good", "Excellent"])
@@ -400,12 +416,12 @@ class TestModel(unittest.TestCase):
         mock_api.model_prediction_api_v1_models_model_id_predict_post.return_value = mock_response
 
         api_model = create_model(id=MODEL_ID)
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
 
         inputs = {"IsFed": [True, False, False]}
         timestamps = [0, 60, 120]
 
-        result = model.predict_compat(mock_api, inputs, timestamps)
+        result = model.predict_compat(inputs, timestamps)
 
         self.assertIn("IsActive", result)
         self.assertEqual(result["IsActive"], [True, True, False])
@@ -430,12 +446,12 @@ class TestModel(unittest.TestCase):
         mock_api.model_prediction_api_v1_models_model_id_predict_post.return_value = mock_response
 
         api_model = create_model(id=MODEL_ID)
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
 
         inputs = {"FeedRate": [1.0, 1.5, 2.0]}
         timestamps = [0, 60, 120]
 
-        result = model.predict_compat(mock_api, inputs, timestamps)
+        result = model.predict_compat(inputs, timestamps)
 
         self.assertIn("Concentration", result)
         self.assertEqual(result["Concentration"], [5.0, 5.5, 6.0])
@@ -448,13 +464,13 @@ class TestModel(unittest.TestCase):
         mock_api.get_model_variables_api_v1_models_model_id_variables_get.return_value = [mock_var_spectrum]
 
         api_model = create_model(id=MODEL_ID)
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
 
         inputs = {"Spectrum": [[1.0, 2.0, 3.0]]}
         timestamps = [0]
 
         with self.assertRaises(NotImplementedError) as context:
-            _ = model.predict_compat(mock_api, inputs, timestamps)
+            _ = model.predict_compat(inputs, timestamps)
 
         self.assertIn("Spectrum variables are not yet supported", str(context.exception))
 
@@ -466,13 +482,13 @@ class TestModel(unittest.TestCase):
         mock_api.get_model_variables_api_v1_models_model_id_variables_get.return_value = [mock_var]
 
         api_model = create_model(id=MODEL_ID)
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
 
         inputs = {"UnknownVar": [1.0, 2.0, 3.0]}
         timestamps = [0, 60, 120]
 
         with self.assertRaises(ValueError) as context:
-            _ = model.predict_compat(mock_api, inputs, timestamps)
+            _ = model.predict_compat(inputs, timestamps)
 
         self.assertIn("Variable code 'UnknownVar' not found", str(context.exception))
 
@@ -482,13 +498,13 @@ class TestModel(unittest.TestCase):
 
         mock_api = Mock()
         api_model = create_model(id=MODEL_ID, status=ModelStatus.RUNNING, name="Training Model")
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
 
         inputs = {"Temperature": [25.0]}
         timestamps = [0]
 
         with self.assertRaises(ValueError) as context:
-            _ = model.predict_compat(mock_api, inputs, timestamps)
+            _ = model.predict_compat(inputs, timestamps)
 
         self.assertIn("Training Model", str(context.exception))
         self.assertIn("not ready for prediction", str(context.exception))
@@ -512,12 +528,12 @@ class TestModel(unittest.TestCase):
         mock_api.model_prediction_api_v1_models_model_id_predict_post.return_value = mock_response
 
         api_model = create_model(id=MODEL_ID)
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
 
         inputs = {"Temperature": [25.0, 26.0, 27.0]}
         timestamps = [0, 60, 120]
 
-        result = model.predict_compat(mock_api, inputs, timestamps, timestamps_unit="s")
+        result = model.predict_compat(inputs, timestamps, timestamps_unit="s")
 
         # Verify timestamps were passed as-is (already in seconds)
         call_args = mock_api.model_prediction_api_v1_models_model_id_predict_post.call_args
@@ -544,12 +560,12 @@ class TestModel(unittest.TestCase):
         mock_api.model_prediction_api_v1_models_model_id_predict_post.return_value = mock_response
 
         api_model = create_model(id=MODEL_ID)
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
 
         inputs = {"Temperature": [25.0, 26.0, 27.0]}
         timestamps = [0, 1, 2]  # Minutes
 
-        result = model.predict_compat(mock_api, inputs, timestamps, timestamps_unit="m")
+        result = model.predict_compat(inputs, timestamps, timestamps_unit="m")
 
         # Verify timestamps were converted to seconds (minutes * 60)
         call_args = mock_api.model_prediction_api_v1_models_model_id_predict_post.call_args
@@ -576,12 +592,12 @@ class TestModel(unittest.TestCase):
         mock_api.model_prediction_api_v1_models_model_id_predict_post.return_value = mock_response
 
         api_model = create_model(id=MODEL_ID)
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
 
         inputs = {"Temperature": [25.0, 26.0]}
         timestamps = [0, 1]  # Hours
 
-        result = model.predict_compat(mock_api, inputs, timestamps, timestamps_unit="h")
+        result = model.predict_compat(inputs, timestamps, timestamps_unit="h")
 
         # Verify timestamps were converted to seconds (hours * 3600)
         call_args = mock_api.model_prediction_api_v1_models_model_id_predict_post.call_args
@@ -608,12 +624,12 @@ class TestModel(unittest.TestCase):
         mock_api.model_prediction_api_v1_models_model_id_predict_post.return_value = mock_response
 
         api_model = create_model(id=MODEL_ID)
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
 
         inputs = {"Temperature": [25.0, 26.0]}
         timestamps = [0, 1]  # Days
 
-        result = model.predict_compat(mock_api, inputs, timestamps, timestamps_unit="d")
+        result = model.predict_compat(inputs, timestamps, timestamps_unit="d")
 
         # Verify timestamps were converted to seconds (days * 86400)
         call_args = mock_api.model_prediction_api_v1_models_model_id_predict_post.call_args
@@ -625,13 +641,13 @@ class TestModel(unittest.TestCase):
         """Test predict_compat raises error for invalid timestamps_unit."""
         mock_api = Mock()
         api_model = create_model(id=MODEL_ID)
-        model = Model(api_model)
+        model = Model(api_model, mock_api)
 
         inputs = {"Temperature": [25.0]}
         timestamps = [0]
 
         with self.assertRaises(ValueError) as context:
-            _ = model.predict_compat(mock_api, inputs, timestamps, timestamps_unit="invalid")
+            _ = model.predict_compat(inputs, timestamps, timestamps_unit="invalid")
 
         self.assertIn("Invalid timestamps_unit 'invalid'", str(context.exception))
         self.assertIn("Must be one of: s, m, h, d", str(context.exception))

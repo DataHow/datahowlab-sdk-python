@@ -1,8 +1,8 @@
 # Disable import cycle check: Model and ModelExperiment have bidirectional references
-# (Model creates ModelExperiment, ModelExperiment holds Model)
+# (those are only relevant for type checking)
 # pyright: reportImportCycles=false
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, final
 from typing_extensions import override
 
 from dhl_sdk._utils import paginate
@@ -17,11 +17,11 @@ if TYPE_CHECKING:
     from dhl_sdk.entities.model_experiment import ModelExperiment
 
 
+@final
 class Model:
-    _model: "OpenAPIModel"
-
-    def __init__(self, model: "OpenAPIModel"):
+    def __init__(self, model: "OpenAPIModel", api: "DefaultApi"):
         self._model = model
+        self._api = api
 
     @override
     def __str__(self) -> str:
@@ -72,7 +72,7 @@ class Model:
         """Returns True if model status is 'success'."""
         return self.status == "success"
 
-    def get_variables(self, api: "DefaultApi") -> "Iterator[ModelVariable]":
+    def get_variables(self) -> "Iterator[ModelVariable]":
         """
         Get all variables associated with this model.
 
@@ -82,12 +82,12 @@ class Model:
         from dhl_sdk.entities.model_variable import ModelVariable
 
         for api_model_variable in paginate(
-            api.get_model_variables_api_v1_models_model_id_variables_get,
+            self._api.get_model_variables_api_v1_models_model_id_variables_get,
             model_id=self.id,
         ):
             yield ModelVariable(api_model_variable)
 
-    def get_experiments(self, api: "DefaultApi") -> "Iterator[ModelExperiment]":
+    def get_experiments(self) -> "Iterator[ModelExperiment]":
         """
         Get all experiments used in this model.
 
@@ -97,14 +97,13 @@ class Model:
         from dhl_sdk.entities.model_experiment import ModelExperiment  # type: ignore[attr-defined]
 
         for api_model_experiment in paginate(
-            api.get_model_experiments_api_v1_models_model_id_experiments_get,
+            self._api.get_model_experiments_api_v1_models_model_id_experiments_get,
             model_id=self.id,
         ):
-            yield ModelExperiment(api_model_experiment, self)
+            yield ModelExperiment(api_model_experiment, self, self._api)
 
     def predict(
         self,
-        api: "DefaultApi",
         inputs: dict[str, "TabularizedDataModelInput"],
         timestamps: list[int],
         config: "ModelPredictionConfig | None" = None,
@@ -114,8 +113,6 @@ class Model:
 
         Parameters
         ----------
-        api : DefaultApi
-            The API client instance
         inputs : dict[str, TabularizedDataModelInput]
             Dictionary mapping variable IDs to input data (scalar or time series)
         timestamps : list[int]
@@ -143,7 +140,7 @@ class Model:
         ...     "var-id-2": TabularizedDataModelInput(TabularizedTimeSeriesData(NumericalTimeSeries(values=[4.0, 5.0, 6.0])))
         ... }
         >>> timestamps = [0, 60, 120]
-        >>> response = model.predict(api, inputs, timestamps)
+        >>> response = model.predict(inputs, timestamps)
         """
         from openapi_client.models.prediction_payload import PredictionPayload
 
@@ -152,11 +149,10 @@ class Model:
 
         payload = PredictionPayload(inputs=inputs, timestamps=timestamps, config=config)
 
-        return api.model_prediction_api_v1_models_model_id_predict_post(model_id=self.id, prediction_payload=payload)
+        return self._api.model_prediction_api_v1_models_model_id_predict_post(model_id=self.id, prediction_payload=payload)
 
     def predict_compat(
         self,
-        api: "DefaultApi",
         inputs: dict[str, list["Any"]],  # pyright: ignore[reportExplicitAny] - Legacy compat method accepts dynamic untyped data
         timestamps: list[int],
         timestamps_unit: str = "s",
@@ -170,8 +166,6 @@ class Model:
 
         Parameters
         ----------
-        api : DefaultApi
-            The API client instance
         inputs : dict[str, list]
             Dictionary mapping variable codes to value lists
             - Single-element lists treated as scalars
@@ -208,7 +202,7 @@ class Model:
         >>>
         >>> # Using different time unit
         >>> timestamps_hours = [0, 1, 2]
-        >>> predictions = model.predict_compat(api, inputs, timestamps_hours, timestamps_unit="h")
+        >>> predictions = model.predict_compat(inputs, timestamps_hours, timestamps_unit="h")
         """
         from openapi_client.models.numerical_scalar import NumericalScalar
         from openapi_client.models.numerical_time_series import NumericalTimeSeries
@@ -233,7 +227,7 @@ class Model:
         timestamps_seconds = [int(t * conversion_factor) for t in timestamps]
 
         # Get all model variables and create bidirectional mappings
-        variables = list(self.get_variables(api))
+        variables = list(self.get_variables())
         code_to_var = {var.code: var for var in variables}
         id_to_var = {var.id: var for var in variables}
 
@@ -292,7 +286,7 @@ class Model:
                     openapi_inputs[var.id] = TabularizedDataModelInput(TabularizedTimeSeriesData(data_instance))
 
         # Call the new predict method with converted timestamps
-        response = self.predict(api, openapi_inputs, timestamps_seconds, config)
+        response = self.predict(openapi_inputs, timestamps_seconds, config)
 
         # Convert response back to legacy format (code -> values list or None)
         result: dict[str, list["Any"] | None] = {}  # pyright: ignore[reportExplicitAny] - Legacy compat method returns dynamic untyped data

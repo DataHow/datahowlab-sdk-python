@@ -39,71 +39,85 @@ class TestModelExperiment(unittest.TestCase):
             description="A test model experiment",
         )
         api_model = create_model(id=MODEL_ID)
-        self.model = Model(api_model)
+        mock_api = Mock()
+        self.model = Model(api_model, mock_api)
 
     def test_init(self):
-        model_experiment = ModelExperiment(self.api_model_experiment, self.model)
+        mock_api = Mock()
+        model_experiment = ModelExperiment(self.api_model_experiment, self.model, mock_api)
         self.assertIsNotNone(model_experiment)
 
     def test_str(self):
-        model_experiment = ModelExperiment(self.api_model_experiment, self.model)
+        mock_api = Mock()
+        model_experiment = ModelExperiment(self.api_model_experiment, self.model, mock_api)
         result = str(model_experiment)
         self.assertEqual(result, "ModelExperiment(Test Model Experiment)")
 
     def test_id_property(self):
-        model_experiment = ModelExperiment(self.api_model_experiment, self.model)
+        mock_api = Mock()
+        model_experiment = ModelExperiment(self.api_model_experiment, self.model, mock_api)
         self.assertEqual(model_experiment.id, EXPERIMENT_ID)
 
     def test_display_name_property(self):
-        model_experiment = ModelExperiment(self.api_model_experiment, self.model)
+        mock_api = Mock()
+        model_experiment = ModelExperiment(self.api_model_experiment, self.model, mock_api)
         self.assertEqual(model_experiment.display_name, "Test Model Experiment")
 
     def test_product_id_property(self):
-        model_experiment = ModelExperiment(self.api_model_experiment, self.model)
+        mock_api = Mock()
+        model_experiment = ModelExperiment(self.api_model_experiment, self.model, mock_api)
         self.assertEqual(model_experiment.product_id, PRODUCT_ID)
 
     def test_description_property(self):
-        model_experiment = ModelExperiment(self.api_model_experiment, self.model)
+        mock_api = Mock()
+        model_experiment = ModelExperiment(self.api_model_experiment, self.model, mock_api)
         self.assertEqual(model_experiment.description, "A test model experiment")
 
     def test_start_time_property(self):
-        model_experiment = ModelExperiment(self.api_model_experiment, self.model)
+        mock_api = Mock()
+        model_experiment = ModelExperiment(self.api_model_experiment, self.model, mock_api)
         self.assertIsNotNone(model_experiment.start_time)
         self.assertEqual(model_experiment.start_time, "2024-01-01T00:00:00Z")
 
     def test_start_time_property_none(self):
+        mock_api = Mock()
         self.api_model_experiment.start_time = None
-        model_experiment = ModelExperiment(self.api_model_experiment, self.model)
+        model_experiment = ModelExperiment(self.api_model_experiment, self.model, mock_api)
         self.assertIsNone(model_experiment.start_time)
 
     def test_variant_property(self):
-        model_experiment = ModelExperiment(self.api_model_experiment, self.model)
+        mock_api = Mock()
+        model_experiment = ModelExperiment(self.api_model_experiment, self.model, mock_api)
         self.assertIsNotNone(model_experiment.variant)
         self.assertEqual(model_experiment.variant, "run")
 
     def test_used_for_training_property(self):
-        model_experiment = ModelExperiment(self.api_model_experiment, self.model)
+        mock_api = Mock()
+        model_experiment = ModelExperiment(self.api_model_experiment, self.model, mock_api)
         self.assertIsNotNone(model_experiment.used_for_training)
         self.assertEqual(model_experiment.used_for_training, True)
 
     def test_tags_property(self):
+        mock_api = Mock()
         api_model_experiment = create_model_experiment(tags={"batch": "B001", "status": "validated"})
-        model_experiment = ModelExperiment(api_model_experiment, self.model)
+        model_experiment = ModelExperiment(api_model_experiment, self.model, mock_api)
         tags = model_experiment.tags
         self.assertIsInstance(tags, dict)
         self.assertEqual(tags["batch"], "B001")
         self.assertEqual(tags["status"], "validated")
 
     def test_tags_property_empty(self):
+        mock_api = Mock()
         api_model_experiment = create_model_experiment(tags=None)
-        model_experiment = ModelExperiment(api_model_experiment, self.model)
+        model_experiment = ModelExperiment(api_model_experiment, self.model, mock_api)
         tags = model_experiment.tags
         self.assertIsInstance(tags, dict)
         self.assertEqual(len(tags), 0)
 
     def test_tags_property_empty_dict(self):
+        mock_api = Mock()
         api_model_experiment = create_model_experiment(tags={})
-        model_experiment = ModelExperiment(api_model_experiment, self.model)
+        model_experiment = ModelExperiment(api_model_experiment, self.model, mock_api)
         tags = model_experiment.tags
         self.assertIsInstance(tags, dict)
         self.assertEqual(len(tags), 0)
@@ -124,8 +138,8 @@ class TestModelExperiment(unittest.TestCase):
         mock_api = Mock()
         mock_api.get_model_experiment_data_api_v1_models_model_id_experiments_experiment_id_data_get.return_value = mock_data
 
-        model_experiment = ModelExperiment(self.api_model_experiment, self.model)
-        result = model_experiment.get_data(mock_api)
+        model_experiment = ModelExperiment(self.api_model_experiment, self.model, mock_api)
+        result = model_experiment.get_data()
 
         self.assertEqual(result, mock_data)
         mock_api.get_model_experiment_data_api_v1_models_model_id_experiments_experiment_id_data_get.assert_called_once_with(
@@ -162,8 +176,8 @@ class TestModelExperiment(unittest.TestCase):
         mock_api = Mock()
         mock_api.get_model_experiment_data_api_v1_models_model_id_experiments_experiment_id_data_get.return_value = mock_tabularized_data
 
-        model_experiment = ModelExperiment(self.api_model_experiment, mock_model)
-        result = model_experiment.get_data_compat(mock_api)
+        model_experiment = ModelExperiment(self.api_model_experiment, mock_model, mock_api)
+        result = model_experiment.get_data_compat()
 
         # Verify result
         self.assertIsNotNone(result)
@@ -205,8 +219,8 @@ class TestModelExperiment(unittest.TestCase):
         mock_api = Mock()
         mock_api.get_model_experiment_data_api_v1_models_model_id_experiments_experiment_id_data_get.return_value = mock_tabularized_data
 
-        model_experiment = ModelExperiment(self.api_model_experiment, mock_model)
-        result = model_experiment.get_data_compat(mock_api)
+        model_experiment = ModelExperiment(self.api_model_experiment, mock_model, mock_api)
+        result = model_experiment.get_data_compat()
 
         # Verify result
         self.assertIsNotNone(result)
@@ -252,8 +266,8 @@ class TestModelExperiment(unittest.TestCase):
         mock_api = Mock()
         mock_api.get_model_experiment_data_api_v1_models_model_id_experiments_experiment_id_data_get.return_value = mock_tabularized_data
 
-        model_experiment = ModelExperiment(self.api_model_experiment, mock_model)
-        result = model_experiment.get_data_compat(mock_api)
+        model_experiment = ModelExperiment(self.api_model_experiment, mock_model, mock_api)
+        result = model_experiment.get_data_compat()
 
         # Verify result
         self.assertIsNotNone(result)
@@ -295,8 +309,8 @@ class TestModelExperiment(unittest.TestCase):
         mock_api = Mock()
         mock_api.get_model_experiment_data_api_v1_models_model_id_experiments_experiment_id_data_get.return_value = mock_tabularized_data
 
-        model_experiment = ModelExperiment(self.api_model_experiment, mock_model)
-        result = model_experiment.get_data_compat(mock_api)
+        model_experiment = ModelExperiment(self.api_model_experiment, mock_model, mock_api)
+        result = model_experiment.get_data_compat()
 
         # Verify result
         self.assertIn("CatScalar", result)
@@ -328,8 +342,8 @@ class TestModelExperiment(unittest.TestCase):
         mock_api = Mock()
         mock_api.get_model_experiment_data_api_v1_models_model_id_experiments_experiment_id_data_get.return_value = mock_tabularized_data
 
-        model_experiment = ModelExperiment(self.api_model_experiment, mock_model)
-        result = model_experiment.get_data_compat(mock_api)
+        model_experiment = ModelExperiment(self.api_model_experiment, mock_model, mock_api)
+        result = model_experiment.get_data_compat()
 
         # Verify result
         self.assertIn("LogicalScalar", result)
@@ -351,8 +365,8 @@ class TestModelExperiment(unittest.TestCase):
         mock_model.id = MODEL_ID
         mock_model.get_variables.return_value = [mock_var_1, mock_var_2, mock_var_3]
 
-        model_experiment = ModelExperiment(self.api_model_experiment, mock_model)
-        result = list(model_experiment.get_variables(mock_api))
+        model_experiment = ModelExperiment(self.api_model_experiment, mock_model, mock_api)
+        result = list(model_experiment.get_variables())
 
         self.assertIsNotNone(result)
         self.assertIsInstance(result, list)
@@ -368,8 +382,8 @@ class TestModelExperiment(unittest.TestCase):
         mock_product = create_product(id=PRODUCT_ID, name="Test Product", code="TEST_PROD")
         mock_api.get_product_by_id_api_v1_products_product_id_get.return_value = mock_product
 
-        model_experiment = ModelExperiment(self.api_model_experiment, self.model)
-        result = model_experiment.get_product(mock_api)
+        model_experiment = ModelExperiment(self.api_model_experiment, self.model, mock_api)
+        result = model_experiment.get_product()
 
         self.assertIsNotNone(result)
         self.assertIsInstance(result, Product)
