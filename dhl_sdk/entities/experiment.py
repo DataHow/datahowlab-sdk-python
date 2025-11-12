@@ -237,5 +237,11 @@ class ExperimentRequest:
         return ExperimentRequest(experiment_create)
 
     def create(self, client: "DataHowLabClient") -> Experiment:
-        created_experiment = client.api.create_experiment_api_v1_experiments_post(experiment_create=self._experiment_create)
+        from dhl_sdk.error_handler import handle_validation_errors
+
+        @handle_validation_errors
+        def _create():
+            return client.api.create_experiment_api_v1_experiments_post(experiment_create=self._experiment_create)
+
+        created_experiment = _create()
         return Experiment(created_experiment, client.api)

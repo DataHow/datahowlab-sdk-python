@@ -84,5 +84,11 @@ class ProductRequest:
         return ProductRequest(product_create)
 
     def create(self, client: "DataHowLabClient") -> Product:
-        created_product = client.api.create_product_api_v1_products_post(product_create=self._product_create)
+        from dhl_sdk.error_handler import handle_validation_errors
+
+        @handle_validation_errors
+        def _create():
+            return client.api.create_product_api_v1_products_post(product_create=self._product_create)
+
+        created_product = _create()
         return Product(created_product, client.api)

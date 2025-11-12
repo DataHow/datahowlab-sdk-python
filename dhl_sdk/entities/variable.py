@@ -85,5 +85,11 @@ class VariableRequest:
         return VariableRequest(variable_create)
 
     def create(self, client: "DataHowLabClient") -> Variable:
-        created_variable = client.api.create_variable_api_v1_variables_post(variable_create=self._variable_create)
+        from dhl_sdk.error_handler import handle_validation_errors
+
+        @handle_validation_errors
+        def _create():
+            return client.api.create_variable_api_v1_variables_post(variable_create=self._variable_create)
+
+        created_variable = _create()
         return Variable(created_variable)

@@ -6,7 +6,9 @@
 __all__ = [
     "APIKeyAuthentication",
     "DataHowLabClient",
+    "ValidationException",
 ]
 
 from dhl_sdk.authentication import APIKeyAuthentication
 from dhl_sdk.client import DataHowLabClient
+from dhl_sdk.exceptions import ValidationException

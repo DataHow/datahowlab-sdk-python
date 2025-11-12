@@ -143,13 +143,18 @@ class Model:
         >>> response = model.predict(inputs, timestamps)
         """
         from openapi_client.models.prediction_payload import PredictionPayload
+        from dhl_sdk.error_handler import handle_validation_errors
 
         if not self.success:
             raise ValueError(f"Model '{self.name}' is not ready for prediction. Current status: {self.status}")
 
         payload = PredictionPayload(inputs=inputs, timestamps=timestamps, config=config)
 
-        return self._api.model_prediction_api_v1_models_model_id_predict_post(model_id=self.id, prediction_payload=payload)
+        @handle_validation_errors
+        def _predict():
+            return self._api.model_prediction_api_v1_models_model_id_predict_post(model_id=self.id, prediction_payload=payload)
+
+        return _predict()
 
     def predict_compat(
         self,
