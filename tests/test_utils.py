@@ -12,7 +12,13 @@ from dhl_sdk._input_processing import (
     _validate_spectra_format,
     format_predictions,
 )
-from dhl_sdk._utils import Instance, PredictionResponse, PredictionRequestConfig
+from dhl_sdk._utils import (
+    FilteringConfig,
+    FilteringType,
+    Instance,
+    PredictionResponse,
+    PredictionRequestConfig,
+)
 from dhl_sdk.crud import Result
 from dhl_sdk.entities import Variable
 from dhl_sdk.exceptions import (
@@ -515,6 +521,70 @@ class TestCultivationUtils(unittest.TestCase):
             self.assertTrue(
                 ex.exception.message.startswith(
                     "All values of input var1 must be valid numeric values"
+                )
+            )
+
+        # valid case with startingIndex != 0
+        prediction_config = PredictionRequestConfig(startingIndex=1)
+        inputs = {"var1": [10], "var2": [20], "var3": [1, 2, 3], "var4": [40]}
+        timestamps = [1, 2, 3]
+        processor = CultivationPropagationPreprocessor(
+            timestamps, "s", inputs, prediction_config, model
+        )
+        processor.validate()
+        outputs = processor.format()
+        instance_x = outputs[0]["instances"][0][0]
+        instance_w = outputs[0]["instances"][0][2]
+        self.assertEqual(
+            instance_x, {"timestamps": [2], "steps": [1], "values": [10.0]}
+        )
+        self.assertEqual(
+            instance_w,
+            {"timestamps": [1, 2, 3], "steps": [0, 1, 2], "values": [1.0, 2.0, 3.0]},
+        )
+
+        # valid case where filtering and startingIndex collide
+        prediction_config = PredictionRequestConfig(
+            startingIndex=1,
+            filteringConfig=FilteringConfig(filtering=FilteringType.PERFECT),
+        )
+        inputs = {
+            "var1": [10, None, None],
+            "var2": [20, None, 20],
+            "var3": [1, 2, 3],
+            "var4": [40],
+        }
+        timestamps = [1, 2, 3]
+        processor = CultivationPropagationPreprocessor(
+            timestamps, "s", inputs, prediction_config, model
+        )
+        with self.assertRaises(InvalidInputsException) as ex:
+            processor.validate()
+            self.assertTrue(
+                ex.exception.message.startswith(
+                    "When a filtering config is provided, the starting index must be 0"
+                )
+            )
+
+        # reset prediction config for valid filtering case
+        prediction_config = PredictionRequestConfig(
+            filteringConfig=FilteringConfig(filtering=FilteringType.PERFECT)
+        )
+        processor = CultivationPropagationPreprocessor(
+            timestamps, "s", inputs, prediction_config, model
+        )
+        processor.validate()
+
+        # invalid filtering case where the inputs are not complete
+        inputs = {"var1": [10], "var2": [20], "var3": [1, 2, 3], "var4": [40]}
+        processor = CultivationPropagationPreprocessor(
+            timestamps, "s", inputs, prediction_config, model
+        )
+        with self.assertRaises(InvalidInputsException) as ex:
+            processor.validate()
+            self.assertTrue(
+                ex.exception.message.startswith(
+                    "When filtering is activated, the recipe requires var1 to be complete"
                 )
             )
 

@@ -1,6 +1,6 @@
-"""This module contains generic utility functions used in the SDK
-"""
+"""This module contains generic utility functions used in the SDK"""
 
+from enum import Enum
 import urllib.parse as urlparse
 from datetime import datetime
 from functools import reduce
@@ -71,16 +71,35 @@ class Instance(BaseModel):
         return self
 
 
+class FilteringType(str, Enum):
+    """filtering type enum"""
+
+    PERFECT = "perfect"
+    PARTICLE = "particle"
+    KALMAN = "kalman"
+
+
+class FilteringConfig(BaseModel):
+    """particle filtering configurations"""
+
+    filtering: FilteringType
+
+
 class PredictionRequestConfig(BaseModel):
     """Prediction configurations"""
 
     starting_index: int = Field(alias="startingIndex", default=0)
     high_values_percentile: float = Field(alias="highValuesPercentile", default=90)
     low_values_percentile: float = Field(alias="lowValuesPercentile", default=10)
+    filtering_config: Optional[FilteringConfig] = Field(
+        default=None, alias="filteringConfig"
+    )
 
     @staticmethod
     def new(
-        model_confidence: float, starting_index: int = 0
+        model_confidence: float,
+        starting_index: int = 0,
+        filtering_config: Optional[FilteringConfig] = None,
     ) -> "PredictionRequestConfig":
         """Create a new Prediction Configuration object"""
         if not 1.0 < model_confidence < 99.0:
@@ -93,6 +112,7 @@ class PredictionRequestConfig(BaseModel):
             startingIndex=starting_index,
             highValuesPercentile=high_value,
             lowValuesPercentile=low_value,
+            filteringConfig=filtering_config,
         )
 
 
