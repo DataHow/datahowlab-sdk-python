@@ -81,121 +81,112 @@ $ poetry shell
 
 ## Usage
 
-For a more comprehensive example guide, check [HERE](examples.ipynb)
+For comprehensive example scripts, check the [examples/](examples/) directory.
+
+For an interactive notebook guide, check [examples.ipynb](examples.ipynb)
 
 For an overview of all the validations that the SDK performs when importing
-data, check [HERE](validations.md)
+data, check [validations.md](validations.md)
 
 ### Importing Package
 
 ```python
-import numpy as np
 from dhl_sdk import DataHowLabClient, APIKeyAuthentication
 
-# DHL_API_KEY env var is loaded from the .env file or added directly as an argument here 
+# Load API key from DHL_API_KEY environment variable
 key = APIKeyAuthentication()
 
-# This is an example. Change this line to your DataHowLab Instance
-your_url = "https://yourdomain.datahowlab.ch/"
-client = DataHowLabClient(auth_key=key, base_url=your_url)
+# Initialize client with your DataHowLab instance URL
+client = DataHowLabClient(auth_key=key, base_url="https://yourdomain.datahowlab.ch/")
 ```
 
 ### Data Accessing
 
 ```python
-# You can access each entity in the DataBase by using the `get_*entity*` method, i.e. 
-experiments = client.get_experiments(name="experiment name")
-recipes = client.get_recipes(name="recipe name")
+# Access products
 products = client.get_products(code="PROD")
-variables = client.get_variables(code="VAR1")
+product = next(products)
 
-
-# All this methods will result in a Iterable objects. For example, to access each experiment, use the `next(experiments)` method.
+# Get experiments for a product
+experiments = client.get_experiments(product_id=product.id)
 experiment = next(experiments)
 
-# Once you find your experiment of interest, you can download the data of that experiment by referencing your `client`
-experiment_data = experiment.get_data(client)
+# Get experiment data in compatibility format
+# Returns: {variable_code: {"values": [...], "timestamps": [...]}}
+exp_data = experiment.get_data_compat()
+
+# Access related entities
+variables = experiment.get_variables()
+product = experiment.get_product()
+
+# Access projects and models
+projects = client.get_projects(name="My Project")
+project = next(projects)
+models = list(project.get_models())
 ```
+
+For complete working examples, see [examples/data_access_compat.py](examples/data_access_compat.py) (recommended) or [examples/data_access.py](examples/data_access.py) (OpenAPI format)
 
 ### Data Importing
 
 ```python
-from dhl_sdk.db_entities import Product, Variable, Experiment, VariableCategorical, VariableNumeric
+from dhl_sdk.entities.product import ProductRequest
+from openapi_client.models.process_format_code import ProcessFormatCode
 
-# In order to import a new experiment, you first need to get or create the correspoding variables and product. 
-# You can get the data using the previous methods. 
-
-product = Product.new(name="ExampleSDK", code="SDKPr", description="Example Product")
-
-variable1 = Variable.new(code="EXv1", name="Example Variable 1", description="This is an example X variable", measurement_unit="l", variable_group="X Variables", variable_type=VariableNumeric())
-variable2 = Variable.new(code="EXv2", name="Example Variable 2", description="This is an example Z variable", measurement_unit="n", variable_group="Z Variables", variable_type=VariableCategorical())
-
-# In order to import the new entities to the DB, you can use the `create` method of the client.
-product = client.create(product)
-variable1 = client.create(variable1)
-variable2 = client.create(variable2)
-
-
-# for the data associated with the new experiment, you can create it using a dictionary form, with the {"variable code": {"timestamps": [], "values": []}}
-run_data = {
-            "EXv1": {
-                "timestamps": [
-                    1600674350,
-                    1600760750,
-                    1600847150,
-
-                ],
-                "values": [
-                    5.1,
-                    3.5,
-                    1.3,
-                ]
-            },
-            "EXv2": {
-                "timestamps": [
-                    1600674350],
-                "values": [
-                    "A"]
-
-            }
-}
-
-experiment = Experiment.new(name="SDK EXP", description="new experiment test for sdk", product=product, variables=[variable1, variable2], data_type="run", data=run_data, variant="run", start_time="2020-09-21T08:45:50Z", end_time="2020-10-05T08:45:50Z")
-
-#if all validations are successful, your new experiment will be uploaded to the database using:
-client.create(experiment)
+# Create a product (code must be <= 10 characters)
+product_request = ProductRequest.new(
+    name="Example Product",
+    code="EXPROD",
+    description="Product created via SDK",
+    process_format=ProcessFormatCode.MAMMAL,
+    tags={"source": "sdk"}
+)
+product = product_request.create(client)
 ```
 
-Note: All timestamps in the new experiment must be in Unix Timestamp format
-(representing the number of seconds since the Unix epoch) and must be rounded to
-the nearest second. Additionally, when adding data to a new experiment, the
-timestamps must fall within the experiment's defined `start_time` and `end_time`
-to be considered valid.
+**Note**: Variable and experiment creation are currently affected by an OpenAPI deserialization issue. See [KNOWN_ISSUES.md](KNOWN_ISSUES.md) for details.
+
+For a working example, see [examples/product_creation.py](examples/product_creation.py)
 
 ### Model Predictions
 
 ```python
-# `client.get_projects()` is called to retrieve a list of projects. 
-# You can filter the projects by name if you include `name=project_name` and project type `spectroscopy/cultivation`. 
-projects = client.get_projects(name="project_name", project_type="spectroscopy")
+from openapi_client.models.model_type import ModelType
 
-# This will result in a Iterable object. To access each project, use the `next(projects)` function.
+# Get a project and find a successful model
+projects = client.get_projects(name="My Project")
 project = next(projects)
 
-# Once you find your project of interest, you can access all the models
-models = project.get_models(name="Test model")
+models = [m for m in project.get_models(model_type=ModelType.PROPAGATION) if m.success]
+model = models[0]
 
-#If you want to check all the models inside a project, just list the models and select from there
-list_of_models = list(models)
-model = list_of_models[2]
+# Get experiment data from the model to use as input
+model_experiments = list(model.get_experiments())
+model_exp = model_experiments[0]
+exp_data = model_exp.get_data_compat()
 
-# Now you just need some data. Here is an example how to load data from an example.csv file using numpy
-# make sure your array only contains the values and not other information, like labels
-data = np.genfromtxt("example.csv", delimiter=',')
+# Prepare inputs from experiment data
+model_vars = list(model.get_variables())
+input_vars = [v for v in model_vars if v.input_type != "none"]
 
-# next, use the selected model to predict you outputs using the loaded spectra
-predictions = model.predict(data)
+inputs = {}
+timestamps = []
+for var in input_vars:
+    if var.code in exp_data:
+        data = exp_data[var.code]
+        inputs[var.code] = data['values']
+        if not timestamps:
+            timestamps = data['timestamps']
+
+# Make predictions
+predictions = model.predict_compat(inputs, timestamps, timestamps_unit="s")
+
+# Access predicted values (returns dict with variable codes as keys)
+for var_code, values in predictions.items():
+    print(f"{var_code}: {values[0]:.2f} -> {values[-1]:.2f}")
 ```
+
+For a complete working example, see [examples/model_prediction_compat.py](examples/model_prediction_compat.py)
 
 ## Configuration
 
