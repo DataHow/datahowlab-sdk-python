@@ -1,13 +1,12 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, final
 from typing_extensions import override
 
 if TYPE_CHECKING:
     from openapi_client.models.model_variable import ModelVariable as OpenAPIModelVariable
 
 
+@final
 class ModelVariable:
-    _model_variable: "OpenAPIModelVariable"
-
     def __init__(self, model_variable: "OpenAPIModelVariable"):
         self._model_variable = model_variable
 
@@ -54,3 +53,15 @@ class ModelVariable:
     @property
     def disposition(self) -> str:
         return self._model_variable.disposition
+
+    @property
+    def tags(self) -> dict[str, str]:
+        """
+        Tags associated with the model variable.
+
+        Returns
+        -------
+        dict[str, str]
+            Dictionary of tag key-value pairs. Returns empty dict if no tags.
+        """
+        return self._model_variable.tags or {}

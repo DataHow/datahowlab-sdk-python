@@ -65,3 +65,25 @@ class TestModelVariable(unittest.TestCase):
         api_model_variable = create_model_variable(disposition="output")
         model_variable = ModelVariable(api_model_variable)
         self.assertEqual(model_variable.disposition, "output")
+
+    def test_tags_property(self):
+        api_model_variable = create_model_variable(tags={"category": "input", "unit": "metric"})
+        model_variable = ModelVariable(api_model_variable)
+        tags = model_variable.tags
+        self.assertIsInstance(tags, dict)
+        self.assertEqual(tags["category"], "input")
+        self.assertEqual(tags["unit"], "metric")
+
+    def test_tags_property_empty(self):
+        api_model_variable = create_model_variable(tags=None)
+        model_variable = ModelVariable(api_model_variable)
+        tags = model_variable.tags
+        self.assertIsInstance(tags, dict)
+        self.assertEqual(len(tags), 0)
+
+    def test_tags_property_empty_dict(self):
+        api_model_variable = create_model_variable(tags={})
+        model_variable = ModelVariable(api_model_variable)
+        tags = model_variable.tags
+        self.assertIsInstance(tags, dict)
+        self.assertEqual(len(tags), 0)
