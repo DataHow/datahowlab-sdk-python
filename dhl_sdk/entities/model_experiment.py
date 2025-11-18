@@ -47,7 +47,7 @@ class ModelExperiment:
         return self._model_experiment.variant.value
 
     @property
-    def used_for_training(self) -> bool | None:
+    def used_for_training(self) -> bool:
         return self._model_experiment.used_for_training
 
     @property

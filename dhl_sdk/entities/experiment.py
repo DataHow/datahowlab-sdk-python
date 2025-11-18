@@ -149,11 +149,11 @@ class ExperimentRequest:
         Raises:
             ValueError: If variable codes are non-unique or if spectra variant is encountered
         """
-        from openapi_client.models.numeric_details_output import NumericDetailsOutput
-        from openapi_client.models.categorical_details_output import CategoricalDetailsOutput
-        from openapi_client.models.flow_details_output import FlowDetailsOutput
-        from openapi_client.models.logical_details_output import LogicalDetailsOutput
-        from openapi_client.models.spectrum_details_output import SpectrumDetailsOutput
+        from openapi_client.models.numeric_details import NumericDetails
+        from openapi_client.models.categorical_details import CategoricalDetails
+        from openapi_client.models.flow_details import FlowDetails
+        from openapi_client.models.logical_details import LogicalDetails
+        from openapi_client.models.spectrum_details import SpectrumDetails
         from openapi_client.models.numerical_time_series_with_timestamps import NumericalTimeSeriesWithTimestamps
         from openapi_client.models.categorical_time_series_with_timestamps import CategoricalTimeSeriesWithTimestamps
         from openapi_client.models.logical_time_series_with_timestamps import LogicalTimeSeriesWithTimestamps
@@ -182,20 +182,20 @@ class ExperimentRequest:
             # Determine the type based on variable's variant details
             variant_details = var.variant_details
 
-            if isinstance(variant_details.actual_instance, NumericDetailsOutput):
+            if isinstance(variant_details.actual_instance, NumericDetails):
                 ts = NumericalTimeSeriesWithTimestamps(values=data["values"], timestamps=data["timestamps"])
                 result[var.id] = RawExperimentDataInputValue(actual_instance=RawTimeSeriesData(actual_instance=ts))
-            elif isinstance(variant_details.actual_instance, CategoricalDetailsOutput):
+            elif isinstance(variant_details.actual_instance, CategoricalDetails):
                 ts = CategoricalTimeSeriesWithTimestamps(values=data["values"], timestamps=data["timestamps"])
                 result[var.id] = RawExperimentDataInputValue(actual_instance=RawTimeSeriesData(actual_instance=ts))
-            elif isinstance(variant_details.actual_instance, LogicalDetailsOutput):
+            elif isinstance(variant_details.actual_instance, LogicalDetails):
                 ts = LogicalTimeSeriesWithTimestamps(values=data["values"], timestamps=data["timestamps"])
                 result[var.id] = RawExperimentDataInputValue(actual_instance=RawTimeSeriesData(actual_instance=ts))
-            elif isinstance(variant_details.actual_instance, FlowDetailsOutput):
+            elif isinstance(variant_details.actual_instance, FlowDetails):
                 # Flow/Feed is also numerical
                 ts = NumericalTimeSeriesWithTimestamps(values=data["values"], timestamps=data["timestamps"])
                 result[var.id] = RawExperimentDataInputValue(actual_instance=RawTimeSeriesData(actual_instance=ts))
-            elif isinstance(variant_details.actual_instance, SpectrumDetailsOutput):
+            elif isinstance(variant_details.actual_instance, SpectrumDetails):
                 raise NotImplementedError(f"Spectra variant is not supported for variable '{var_code}'")
             else:
                 result[var.id] = None

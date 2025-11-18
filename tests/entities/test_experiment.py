@@ -390,12 +390,12 @@ class TestExperimentRequest(unittest.TestCase):
     def test_from_compat_data(self):
         from dhl_sdk.entities.variable import Variable
         from openapi_client.models.variantdetails import Variantdetails
-        from openapi_client.models.numeric_details_output import NumericDetailsOutput
-        from openapi_client.models.categorical_details_output import CategoricalDetailsOutput
+        from openapi_client.models.numeric_details import NumericDetails
+        from openapi_client.models.categorical_details import CategoricalDetails
 
         # Create mock variables with different types
-        mock_var_1 = create_variable(id=VAR_1_ID, code="TEMP", variantDetails=Variantdetails(actual_instance=NumericDetailsOutput()))
-        mock_var_2 = create_variable(id=VAR_2_ID, code="STATUS", variantDetails=Variantdetails(actual_instance=CategoricalDetailsOutput()))
+        mock_var_1 = create_variable(id=VAR_1_ID, code="TEMP", variantDetails=Variantdetails(actual_instance=NumericDetails()))
+        mock_var_2 = create_variable(id=VAR_2_ID, code="STATUS", variantDetails=Variantdetails(actual_instance=CategoricalDetails()))
 
         variables = [Variable(mock_var_1), Variable(mock_var_2)]
 
@@ -440,12 +440,12 @@ class TestExperimentRequest(unittest.TestCase):
     def test_from_compat_data_with_flow_variant(self):
         from dhl_sdk.entities.variable import Variable
         from openapi_client.models.variantdetails import Variantdetails
-        from openapi_client.models.flow_details_output import FlowDetailsOutput
+        from openapi_client.models.flow_details import FlowDetails
         from openapi_client.models.flow_type import FlowType
 
         # Create mock variable with flow type
         mock_var_1 = create_variable(
-            id=VAR_1_ID, code="FLOW_RATE", variantDetails=Variantdetails(actual_instance=FlowDetailsOutput(type=FlowType.CONTI))
+            id=VAR_1_ID, code="FLOW_RATE", variantDetails=Variantdetails(actual_instance=FlowDetails(type=FlowType.CONTI))
         )
 
         variables = [Variable(mock_var_1)]
@@ -471,14 +471,14 @@ class TestExperimentRequest(unittest.TestCase):
     def test_from_compat_data_non_unique_codes(self):
         from dhl_sdk.entities.variable import Variable
         from openapi_client.models.variantdetails import Variantdetails
-        from openapi_client.models.numeric_details_output import NumericDetailsOutput
+        from openapi_client.models.numeric_details import NumericDetails
 
         # Create mock variables with the same code
-        mock_var_1 = create_variable(id=VAR_1_ID, code="TEMP", variantDetails=Variantdetails(actual_instance=NumericDetailsOutput()))
+        mock_var_1 = create_variable(id=VAR_1_ID, code="TEMP", variantDetails=Variantdetails(actual_instance=NumericDetails()))
         mock_var_2 = create_variable(
             id=VAR_2_ID,
             code="TEMP",  # Duplicate code
-            variantDetails=Variantdetails(actual_instance=NumericDetailsOutput()),
+            variantDetails=Variantdetails(actual_instance=NumericDetails()),
         )
 
         variables = [Variable(mock_var_1), Variable(mock_var_2)]
@@ -497,10 +497,10 @@ class TestExperimentRequest(unittest.TestCase):
     def test_from_compat_data_spectra_not_supported(self):
         from dhl_sdk.entities.variable import Variable
         from openapi_client.models.variantdetails import Variantdetails
-        from openapi_client.models.spectrum_details_output import SpectrumDetailsOutput
+        from openapi_client.models.spectrum_details import SpectrumDetails
 
         # Create mock variable with spectrum type
-        mock_var_1 = create_variable(id=VAR_1_ID, code="SPECTRUM", variantDetails=Variantdetails(actual_instance=SpectrumDetailsOutput()))
+        mock_var_1 = create_variable(id=VAR_1_ID, code="SPECTRUM", variantDetails=Variantdetails(actual_instance=SpectrumDetails()))
 
         variables = [Variable(mock_var_1)]
 
@@ -518,10 +518,10 @@ class TestExperimentRequest(unittest.TestCase):
     def test_from_compat_data_unknown_variable_code(self):
         from dhl_sdk.entities.variable import Variable
         from openapi_client.models.variantdetails import Variantdetails
-        from openapi_client.models.numeric_details_output import NumericDetailsOutput
+        from openapi_client.models.numeric_details import NumericDetails
 
         # Create mock variable
-        mock_var_1 = create_variable(id=VAR_1_ID, code="TEMP", variantDetails=Variantdetails(actual_instance=NumericDetailsOutput()))
+        mock_var_1 = create_variable(id=VAR_1_ID, code="TEMP", variantDetails=Variantdetails(actual_instance=NumericDetails()))
 
         variables = [Variable(mock_var_1)]
 
