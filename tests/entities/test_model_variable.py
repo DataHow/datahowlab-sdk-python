@@ -46,10 +46,47 @@ class TestModelVariable(unittest.TestCase):
         model_variable = ModelVariable(api_model_variable)
         self.assertEqual(model_variable.group, "Y")
 
+    def test_variant_details_property(self):
+        api_model_variable = create_model_variable()
+        model_variable = ModelVariable(api_model_variable)
+        self.assertIsNotNone(model_variable.variant_details)
+
     def test_variant_property(self):
         api_model_variable = create_model_variable()
         model_variable = ModelVariable(api_model_variable)
         self.assertEqual(model_variable.variant, "numeric")
+
+    def test_variant_property_categorical(self):
+        api_model_variable = create_model_variable(variant="categorical")
+        model_variable = ModelVariable(api_model_variable)
+        self.assertEqual(model_variable.variant, "categorical")
+
+    def test_variant_property_logical(self):
+        api_model_variable = create_model_variable(variant="logical")
+        model_variable = ModelVariable(api_model_variable)
+        self.assertEqual(model_variable.variant, "logical")
+
+    def test_variant_property_flow(self):
+        api_model_variable = create_model_variable(variant="flow")
+        model_variable = ModelVariable(api_model_variable)
+        self.assertEqual(model_variable.variant, "flow")
+
+    def test_variant_property_spectrum(self):
+        api_model_variable = create_model_variable(variant="spectrum")
+        model_variable = ModelVariable(api_model_variable)
+        self.assertEqual(model_variable.variant, "spectrum")
+
+    def test_aggregation_property(self):
+        api_model_variable = create_model_variable()
+        model_variable = ModelVariable(api_model_variable)
+        self.assertEqual(model_variable.aggregation, "none")
+
+    def test_aggregation_property_last(self):
+        from openapi_client.models.group_aggregation import GroupAggregation
+
+        api_model_variable = create_model_variable(aggregation=GroupAggregation.LAST)
+        model_variable = ModelVariable(api_model_variable)
+        self.assertEqual(model_variable.aggregation, "last")
 
     def test_input_type_property(self):
         api_model_variable = create_model_variable()
@@ -65,3 +102,25 @@ class TestModelVariable(unittest.TestCase):
         api_model_variable = create_model_variable(disposition="output")
         model_variable = ModelVariable(api_model_variable)
         self.assertEqual(model_variable.disposition, "output")
+
+    def test_tags_property(self):
+        api_model_variable = create_model_variable(tags={"category": "input", "unit": "metric"})
+        model_variable = ModelVariable(api_model_variable)
+        tags = model_variable.tags
+        self.assertIsInstance(tags, dict)
+        self.assertEqual(tags["category"], "input")
+        self.assertEqual(tags["unit"], "metric")
+
+    def test_tags_property_empty(self):
+        api_model_variable = create_model_variable(tags=None)
+        model_variable = ModelVariable(api_model_variable)
+        tags = model_variable.tags
+        self.assertIsInstance(tags, dict)
+        self.assertEqual(len(tags), 0)
+
+    def test_tags_property_empty_dict(self):
+        api_model_variable = create_model_variable(tags={})
+        model_variable = ModelVariable(api_model_variable)
+        tags = model_variable.tags
+        self.assertIsInstance(tags, dict)
+        self.assertEqual(len(tags), 0)

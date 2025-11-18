@@ -20,42 +20,51 @@ class TestProduct(unittest.TestCase):
         )
 
     def test_init(self):
-        product = Product(self.api_product)
+        mock_api = Mock()
+        product = Product(self.api_product, mock_api)
         self.assertIsNotNone(product)
 
     def test_str(self):
-        product = Product(self.api_product)
+        mock_api = Mock()
+        product = Product(self.api_product, mock_api)
         result = str(product)
         self.assertEqual(result, "Product(name=Test Product, code=TEST_PROD)")
 
     def test_id_property(self):
-        product = Product(self.api_product)
+        mock_api = Mock()
+        product = Product(self.api_product, mock_api)
         self.assertEqual(product.id, "prod-123")
 
     def test_name_property(self):
-        product = Product(self.api_product)
+        mock_api = Mock()
+        product = Product(self.api_product, mock_api)
         self.assertEqual(product.name, "Test Product")
 
     def test_code_property(self):
-        product = Product(self.api_product)
+        mock_api = Mock()
+        product = Product(self.api_product, mock_api)
         self.assertEqual(product.code, "TEST_PROD")
 
     def test_description_property(self):
-        product = Product(self.api_product)
+        mock_api = Mock()
+        product = Product(self.api_product, mock_api)
         self.assertEqual(product.description, "A test product")
 
     def test_process_format_property(self):
-        product = Product(self.api_product)
+        mock_api = Mock()
+        product = Product(self.api_product, mock_api)
         self.assertIsNotNone(product.process_format)
 
     def test_variable_data_property_none(self):
-        product = Product(self.api_product)
+        mock_api = Mock()
+        product = Product(self.api_product, mock_api)
         result = product.variable_data
         self.assertEqual(result, {})
 
     def test_variable_data_property_with_data(self):
+        mock_api = Mock()
         self.api_product.variable_data = {VAR_1_ID: {"type": "scalar", "value": 5.5}}
-        product = Product(self.api_product)
+        product = Product(self.api_product, mock_api)
         result = product.variable_data
 
         self.assertIsNotNone(result)
@@ -63,8 +72,9 @@ class TestProduct(unittest.TestCase):
         self.assertIn(VAR_1_ID, result)
 
     def test_variable_data_property_multiple_variables(self):
+        mock_api = Mock()
         self.api_product.variable_data = {VAR_1_ID: {"type": "scalar", "value": 5.5}, VAR_2_ID: {"type": "scalar", "value": 10.0}}
-        product = Product(self.api_product)
+        product = Product(self.api_product, mock_api)
         result = product.variable_data
 
         self.assertIsNotNone(result)
@@ -73,12 +83,14 @@ class TestProduct(unittest.TestCase):
         self.assertIn(VAR_2_ID, result)
 
     def test_tags_property_none(self):
-        product = Product(self.api_product)
+        mock_api = Mock()
+        product = Product(self.api_product, mock_api)
         self.assertEqual(product.tags, {})
 
     def test_tags_property_dict(self):
+        mock_api = Mock()
         self.api_product.tags = {"key": "value"}
-        product = Product(self.api_product)
+        product = Product(self.api_product, mock_api)
         self.assertEqual(product.tags, {"key": "value"})
 
 
@@ -151,6 +163,8 @@ class TestProductRequest(unittest.TestCase):
 
     def test_create(self):
         mock_api = Mock()
+        mock_client = Mock()
+        mock_client.api = mock_api
         created_product = create_product(
             id="prod-456",
             name="Created Product",
@@ -165,7 +179,7 @@ class TestProductRequest(unittest.TestCase):
             description="Created product",
             process_format=ProcessFormatCode.MAMMAL,
         )
-        product = request.create(mock_api)
+        product = request.create(mock_client)
 
         self.assertIsInstance(product, Product)
         self.assertEqual(product.id, "prod-456")
@@ -176,6 +190,8 @@ class TestProductRequest(unittest.TestCase):
         variable_data = {VAR_1_ID: {"type": "scalar", "value": 5.5}}
 
         mock_api = Mock()
+        mock_client = Mock()
+        mock_client.api = mock_api
         created_product = create_product(
             id="prod-789",
             name="Product with Variables",
@@ -192,7 +208,7 @@ class TestProductRequest(unittest.TestCase):
             process_format=ProcessFormatCode.MAMMAL,
             variable_data=variable_data,
         )
-        product = request.create(mock_api)
+        product = request.create(mock_client)
 
         self.assertIsInstance(product, Product)
         self.assertEqual(product.id, "prod-789")

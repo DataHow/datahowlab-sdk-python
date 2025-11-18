@@ -1,16 +1,24 @@
 from typing import Any, cast
 
+from openapi_client.models.categorical_details import CategoricalDetails
 from openapi_client.models.experiment import Experiment as OpenAPIExperiment
 from openapi_client.models.experiment_variant import ExperimentVariant
+from openapi_client.models.flow_details import FlowDetails
+from openapi_client.models.flow_type import FlowType
+from openapi_client.models.group import Group as OpenAPIGroup
+from openapi_client.models.group_aggregation import GroupAggregation
+from openapi_client.models.logical_details import LogicalDetails
 from openapi_client.models.model import Model as OpenAPIModel
 from openapi_client.models.model_experiment import ModelExperiment as OpenAPIModelExperiment
 from openapi_client.models.model_status import ModelStatus
 from openapi_client.models.model_type import ModelType
 from openapi_client.models.model_variable import ModelVariable as OpenAPIModelVariable
+from openapi_client.models.numeric_details import NumericDetails
 from openapi_client.models.product import Product as OpenAPIProduct
 from openapi_client.models.process_format_code import ProcessFormatCode
 from openapi_client.models.process_unit_code import ProcessUnitCode
 from openapi_client.models.project import Project as OpenAPIProject
+from openapi_client.models.spectrum_details import SpectrumDetails
 from openapi_client.models.variable import Variable as OpenAPIVariable
 from openapi_client.models.variable_input_type import VariableInputType
 from openapi_client.models.variable_output_type import VariableOutputType
@@ -79,7 +87,8 @@ def create_variable(**overrides: Any) -> OpenAPIVariable:
         "description": "Test variable description",
         "measurementUnit": "g/L",
         "group": "X",
-        "variantDetails": Variantdetails(),
+        "variantDetails": Variantdetails(actual_instance=NumericDetails()),
+        "aggregation": GroupAggregation.NONE,
     }
     defaults.update(cast(dict[str, object], overrides))
     return OpenAPIVariable.model_validate(defaults)
@@ -118,6 +127,7 @@ def create_raw_experiment_data_value(values: list[Any], timestamps: list[int], d
 
     return RawExperimentDataInputValue(actual_instance=RawTimeSeriesData(actual_instance=ts))
 
+
 def create_model_experiment(**overrides: Any) -> OpenAPIModelExperiment:
     defaults: dict[str, object] = {
         "id": EXPERIMENT_ID,
@@ -133,6 +143,20 @@ def create_model_experiment(**overrides: Any) -> OpenAPIModelExperiment:
 
 
 def create_model_variable(**overrides: Any) -> OpenAPIModelVariable:
+    # Handle legacy "variant" parameter
+    variant_str = overrides.pop("variant", "numeric")
+
+    # Map variant string to appropriate details class
+    variant_details_map = {
+        "numeric": NumericDetails(),
+        "categorical": CategoricalDetails(),
+        "logical": LogicalDetails(),
+        "flow": FlowDetails(type=FlowType.CONTI),
+        "spectrum": SpectrumDetails(),
+    }
+
+    variant_details = variant_details_map.get(variant_str, NumericDetails())
+
     defaults: dict[str, object] = {
         "id": VARIABLE_ID,
         "name": "Test Model Variable",
@@ -140,10 +164,24 @@ def create_model_variable(**overrides: Any) -> OpenAPIModelVariable:
         "description": "Test model variable description",
         "measurementUnit": "g/L",
         "group": "X",
-        "variant": VariableVariant.NUMERIC,
+        "variantDetails": Variantdetails(actual_instance=variant_details),
+        "aggregation": GroupAggregation.NONE,
         "inputType": VariableInputType.SCALAR,
         "outputType": VariableOutputType.FULLTIMESERIES,
         "disposition": "input",
     }
     defaults.update(cast(dict[str, object], overrides))
     return OpenAPIModelVariable.model_validate(defaults)
+
+
+def create_variable_group(**overrides: Any) -> OpenAPIGroup:
+    defaults: dict[str, object] = {
+        "id": "group-123",
+        "name": "Test Variable Group",
+        "code": "TEST_GROUP",
+        "description": "Test variable group description",
+        "tags": {"category": "test"},
+        "variableVariants": [VariableVariant.NUMERIC],
+    }
+    defaults.update(cast(dict[str, object], overrides))
+    return OpenAPIGroup.model_validate(defaults)
