@@ -5,7 +5,6 @@ if TYPE_CHECKING:
     from dhl_sdk.client import DataHowLabClient
     from openapi_client.models.variable import Variable as OpenAPIVariable
     from openapi_client.models.variable_create import VariableCreate
-    from openapi_client.models.variantdetails import Variantdetails
     from openapi_client.models.variantdetails1 import Variantdetails1
 
 
@@ -43,12 +42,47 @@ class Variable:
         return self._variable.group
 
     @property
-    def variant_details(self) -> "Variantdetails":
+    def variant_details(self) -> "Variantdetails1":
         return self._variable.variant_details
 
     @property
-    def tags(self) -> dict[str, str] | None:
-        return self._variable.tags
+    def variant(self) -> str:
+        """Extract variant type string from variant_details for backward compatibility."""
+        from openapi_client.models.numeric_details import NumericDetails
+        from openapi_client.models.categorical_details import CategoricalDetails
+        from openapi_client.models.logical_details import LogicalDetails
+        from openapi_client.models.flow_details import FlowDetails
+        from openapi_client.models.spectrum_details import SpectrumDetails
+
+        actual = self.variant_details.actual_instance
+        if isinstance(actual, NumericDetails):
+            return "numeric"
+        elif isinstance(actual, CategoricalDetails):
+            return "categorical"
+        elif isinstance(actual, LogicalDetails):
+            return "logical"
+        elif isinstance(actual, FlowDetails):
+            return "flow"
+        elif isinstance(actual, SpectrumDetails):
+            return "spectrum"
+        else:
+            return "unknown"
+
+    @property
+    def tags(self) -> dict[str, str]:
+        """
+        Tags associated with the variable.
+
+        Returns
+        -------
+        dict[str, str]
+            Dictionary of tag key-value pairs. Returns empty dict if no tags.
+        """
+        return self._variable.tags or {}
+
+    @property
+    def aggregation(self) -> str:
+        return self._variable.aggregation.value
 
 
 class VariableRequest:

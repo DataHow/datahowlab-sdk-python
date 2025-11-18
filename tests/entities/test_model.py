@@ -121,6 +121,29 @@ class TestModel(unittest.TestCase):
         self.assertIsInstance(tags, dict)
         self.assertEqual(len(tags), 0)
 
+    def test_references_property(self):
+        from openapi_client.models.model_reference import ModelReference
+        from openapi_client.models.model_type import ModelType
+
+        mock_api = Mock()
+        ref1 = ModelReference(type=ModelType.PROPAGATION, modelId="model-123")
+        ref2 = ModelReference(type=ModelType.HISTORICAL, modelId="model-456")
+        api_model = create_model(references=[ref1, ref2])
+        model = Model(api_model, mock_api)
+        references = model.references
+        self.assertIsInstance(references, list)
+        self.assertEqual(len(references), 2)
+        self.assertEqual(references[0].model_id, "model-123")
+        self.assertEqual(references[1].model_id, "model-456")
+
+    def test_references_property_empty(self):
+        mock_api = Mock()
+        api_model = create_model(references=None)
+        model = Model(api_model, mock_api)
+        references = model.references
+        self.assertIsInstance(references, list)
+        self.assertEqual(len(references), 0)
+
     def test_get_variables(self):
         from dhl_sdk.entities.model_variable import ModelVariable
 

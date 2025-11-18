@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, final
 from typing_extensions import override
 
 from dhl_sdk._utils import paginate
+from dhl_sdk import convert_tags_for_openapi
 
 if TYPE_CHECKING:
     from openapi_client.api.default_api import DefaultApi
@@ -84,12 +85,15 @@ class Project:
         elif model_type is not None:
             model_type_list = [model_type]
 
+        # Convert tags to OpenAPI format (dict[str, str] -> dict[str, dict[str, str]])
+        tags_openapi = convert_tags_for_openapi(tags)
+
         for api_model in paginate(
             self._api.get_models_api_v1_projects_project_id_models_get,
             project_id=self._project.id,
             search=search,
             name=name,
-            tags=tags,  # pyright: ignore[reportArgumentType] - OpenAPI generator incorrectly generates Dict[str, Dict[str, StrictStr]] for deepObject parameters
+            tags=tags_openapi,
             model_type=model_type_list,
         ):
             yield Model(api_model, self._api)

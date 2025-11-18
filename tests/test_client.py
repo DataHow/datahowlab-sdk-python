@@ -68,10 +68,11 @@ class TestDataHowLabClient(unittest.TestCase):
         result = list(client.get_projects(tags={"location": "plant1", "version": "v2"}))
 
         self.assertEqual(len(result), 1)
+        # Tags are converted to nested format for OpenAPI
         mock_get_projects.assert_called_once_with(
             search=None,
             name=None,
-            tags={"location": "plant1", "version": "v2"},
+            tags={"location": {"location": "plant1"}, "version": {"version": "v2"}},
             process_unit=None,
             process_format=None,
             skip=0,
@@ -188,11 +189,12 @@ class TestDataHowLabClient(unittest.TestCase):
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0].name, "Temperature Group")
+        # Tags are converted to nested format for OpenAPI
         mock_get_groups.assert_called_once_with(
             search="Temperature",
             name=None,
             code=None,
-            tags={"category": "process"},
+            tags={"category": {"category": "process"}},
             process_unit=ProcessUnitCode.BR,
             process_format=ProcessFormatCode.MAMMAL,
             skip=0,

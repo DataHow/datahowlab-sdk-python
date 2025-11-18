@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, final
 
 from dhl_sdk._utils import paginate
 from dhl_sdk.authentication import APIKeyAuthentication
+from dhl_sdk import convert_tags_for_openapi
 
 if TYPE_CHECKING:
     from openapi_client.models.process_format_code import ProcessFormatCode
@@ -123,11 +124,14 @@ class DataHowLabClient:
         elif process_format is not None:
             process_format_list = [process_format]
 
+        # Convert tags to OpenAPI format (dict[str, str] -> dict[str, dict[str, str]])
+        tags_openapi = convert_tags_for_openapi(tags)
+
         for api_project in paginate(
             self.api.get_projects_api_v1_projects_get,
             search=search,
             name=name,
-            tags=tags,  # pyright: ignore[reportArgumentType] - OpenAPI generator incorrectly generates Dict[str, Dict[str, StrictStr]] for deepObject parameters
+            tags=tags_openapi,
             process_unit=process_unit_list,
             process_format=process_format_list,
         ):
@@ -179,10 +183,13 @@ class DataHowLabClient:
         elif process_format is not None:
             process_format_list = [process_format]
 
+        # Convert tags to OpenAPI format (dict[str, str] -> dict[str, dict[str, str]])
+        tags_openapi = convert_tags_for_openapi(tags)
+
         for api_experiment in paginate(
             self.api.get_experiments_api_v1_experiments_get,
             search=search,
-            tags=tags,  # pyright: ignore[reportArgumentType] - OpenAPI generator incorrectly generates Dict[str, Dict[str, StrictStr]] for deepObject parameters
+            tags=tags_openapi,
             product_id=product_id,
             process_unit=process_unit_list,
             process_format=process_format_list,
@@ -227,12 +234,15 @@ class DataHowLabClient:
         elif process_format is not None:
             process_format_list = [process_format]
 
+        # Convert tags to OpenAPI format (dict[str, str] -> dict[str, dict[str, str]])
+        tags_openapi = convert_tags_for_openapi(tags)
+
         for api_product in paginate(
             self.api.get_products_api_v1_products_get,
             search=search,
             name=name,
             code=code,
-            tags=tags,  # pyright: ignore[reportArgumentType] - OpenAPI generator incorrectly generates Dict[str, Dict[str, StrictStr]] for deepObject parameters
+            tags=tags_openapi,
             process_format=process_format_list,
         ):
             yield Product(api_product, self.api)
@@ -273,12 +283,15 @@ class DataHowLabClient:
         """
         from dhl_sdk.entities.variable import Variable
 
+        # Convert tags to OpenAPI format (dict[str, str] -> dict[str, dict[str, str]])
+        tags_openapi = convert_tags_for_openapi(tags)
+
         for api_variable in paginate(
             self.api.get_variables_api_v1_variables_get,
             search=search,
             name=name,
             code=code,
-            tags=tags,  # pyright: ignore[reportArgumentType] - OpenAPI generator incorrectly generates Dict[str, Dict[str, StrictStr]] for deepObject parameters
+            tags=tags_openapi,
             group_code=group_code,
             group_id=group_id,
             variant=variant,
@@ -322,12 +335,15 @@ class DataHowLabClient:
         """
         from dhl_sdk.entities.variable_group import VariableGroup
 
+        # Convert tags to OpenAPI format (dict[str, str] -> dict[str, dict[str, str]])
+        tags_openapi = convert_tags_for_openapi(tags)
+
         for api_group in paginate(
             self.api.get_groups_api_v1_groups_get,
             search=search,
             name=name,
             code=code,
-            tags=tags,  # pyright: ignore[reportArgumentType] - OpenAPI generator incorrectly generates Dict[str, Dict[str, StrictStr]] for deepObject parameters
+            tags=tags_openapi,
             process_unit=process_unit,
             process_format=process_format,
         ):

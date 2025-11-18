@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from openapi_client.models.prediction_response import PredictionResponse
     from openapi_client.models.model_prediction_config import ModelPredictionConfig
     from openapi_client.models.tabularized_data_model_input import TabularizedDataModelInput
+    from openapi_client.models.model_reference import ModelReference
     from dhl_sdk.entities.model_variable import ModelVariable
     from dhl_sdk.entities.model_experiment import ModelExperiment
 
@@ -66,6 +67,18 @@ class Model:
     @property
     def tags(self) -> dict[str, str]:
         return self._model.tags or {}
+
+    @property
+    def references(self) -> "list[ModelReference]":
+        """
+        References to other models (only for Combined Model type).
+
+        Returns
+        -------
+        list[ModelReference]
+            List of model references. Returns empty list if no references.
+        """
+        return self._model.references or []
 
     @property
     def success(self) -> bool:

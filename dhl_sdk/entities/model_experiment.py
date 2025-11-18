@@ -6,6 +6,8 @@ if TYPE_CHECKING:
     from openapi_client.api.default_api import DefaultApi
     from openapi_client.models.model_experiment import ModelExperiment as OpenAPIModelExperiment
     from openapi_client.models.tabularized_experiment_data import TabularizedExperimentData
+    from openapi_client.models.process_unit_code import ProcessUnitCode
+    from openapi_client.models.variantdetails import Variantdetails
     from dhl_sdk.entities.product import Product
     from dhl_sdk.entities.model import Model
     from dhl_sdk.entities.model_variable import ModelVariable
@@ -39,15 +41,91 @@ class ModelExperiment:
         return self._model_experiment.description
 
     @property
-    def start_time(self) -> str | None:
-        return self._model_experiment.start_time
+    def process_unit(self) -> "ProcessUnitCode":
+        """Process unit code for the model experiment."""
+        return self._model_experiment.process_unit
+
+    @property
+    def variant_details(self) -> "Variantdetails":
+        """
+        Variant-specific details for the model experiment.
+
+        Returns
+        -------
+        Variantdetails
+            Union of RunDetails (with start_time/end_time) or SamplesDetails.
+        """
+        return self._model_experiment.variant_details
+
+    @property
+    def extra(self) -> dict[str, Any] | None:  # pyright: ignore[reportExplicitAny] - Extra metadata accepts arbitrary user data
+        """
+        Extra experiment metadata.
+
+        Returns
+        -------
+        dict[str, Any] | None
+            Dictionary of extra data or None if not set.
+        """
+        return self._model_experiment.extra
 
     @property
     def variant(self) -> str:
-        return self._model_experiment.variant.value
+        """
+        Extract variant type string from variant_details (backward compatibility).
+
+        Returns
+        -------
+        str
+            'run' for RunDetails variant, 'samples' for SamplesDetails variant.
+        """
+        from openapi_client.models.run_details import RunDetails
+        from openapi_client.models.samples_details import SamplesDetails
+
+        actual = self.variant_details.actual_instance
+        if isinstance(actual, RunDetails):
+            return "run"
+        elif isinstance(actual, SamplesDetails):
+            return "samples"
+        else:
+            return "unknown"
 
     @property
-    def used_for_training(self) -> bool | None:
+    def start_time(self) -> str | None:
+        """
+        Start time of the experiment (only for 'run' variant).
+
+        Returns
+        -------
+        str | None
+            Start time string if variant is RunDetails, None otherwise.
+        """
+        from openapi_client.models.run_details import RunDetails
+
+        actual = self.variant_details.actual_instance
+        if isinstance(actual, RunDetails):
+            return actual.start_time
+        return None
+
+    @property
+    def end_time(self) -> str | None:
+        """
+        End time of the experiment (only for 'run' variant).
+
+        Returns
+        -------
+        str | None
+            End time string if variant is RunDetails, None otherwise.
+        """
+        from openapi_client.models.run_details import RunDetails
+
+        actual = self.variant_details.actual_instance
+        if isinstance(actual, RunDetails):
+            return actual.end_time
+        return None
+
+    @property
+    def used_for_training(self) -> bool:
         return self._model_experiment.used_for_training
 
     @property

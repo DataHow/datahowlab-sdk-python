@@ -73,23 +73,83 @@ class TestModelExperiment(unittest.TestCase):
         model_experiment = ModelExperiment(self.api_model_experiment, self.model, mock_api)
         self.assertEqual(model_experiment.description, "A test model experiment")
 
-    def test_start_time_property(self):
-        mock_api = Mock()
-        model_experiment = ModelExperiment(self.api_model_experiment, self.model, mock_api)
-        self.assertIsNotNone(model_experiment.start_time)
-        self.assertEqual(model_experiment.start_time, "2024-01-01T00:00:00Z")
+    def test_process_unit_property(self):
+        from openapi_client.models.process_unit_code import ProcessUnitCode
 
-    def test_start_time_property_none(self):
         mock_api = Mock()
-        self.api_model_experiment.start_time = None
         model_experiment = ModelExperiment(self.api_model_experiment, self.model, mock_api)
-        self.assertIsNone(model_experiment.start_time)
+        self.assertEqual(model_experiment.process_unit, ProcessUnitCode.BR)
+
+    def test_variant_details_property(self):
+        from openapi_client.models.variantdetails import Variantdetails
+        from openapi_client.models.run_details import RunDetails
+
+        mock_api = Mock()
+        model_experiment = ModelExperiment(self.api_model_experiment, self.model, mock_api)
+        self.assertIsNotNone(model_experiment.variant_details)
+        self.assertIsInstance(model_experiment.variant_details, Variantdetails)
+        self.assertIsInstance(model_experiment.variant_details.actual_instance, RunDetails)
+
+    def test_extra_property(self):
+        mock_api = Mock()
+        api_model_experiment = create_model_experiment(extra={"key1": "value1", "key2": 42})
+        model_experiment = ModelExperiment(api_model_experiment, self.model, mock_api)
+        extra = model_experiment.extra
+        self.assertIsNotNone(extra)
+        self.assertIsInstance(extra, dict)
+        self.assertEqual(extra["key1"], "value1")  # pyright: ignore[reportOptionalSubscript] - Checked above
+        self.assertEqual(extra["key2"], 42)  # pyright: ignore[reportOptionalSubscript] - Checked above
+
+    def test_extra_property_none(self):
+        mock_api = Mock()
+        api_model_experiment = create_model_experiment(extra=None)
+        model_experiment = ModelExperiment(api_model_experiment, self.model, mock_api)
+        self.assertIsNone(model_experiment.extra)
 
     def test_variant_property(self):
         mock_api = Mock()
         model_experiment = ModelExperiment(self.api_model_experiment, self.model, mock_api)
         self.assertIsNotNone(model_experiment.variant)
         self.assertEqual(model_experiment.variant, "run")
+
+    def test_variant_property_samples(self):
+        from openapi_client.models.variantdetails import Variantdetails
+        from openapi_client.models.samples_details import SamplesDetails
+
+        mock_api = Mock()
+        api_model_experiment = create_model_experiment(variantDetails=Variantdetails(actual_instance=SamplesDetails()))
+        model_experiment = ModelExperiment(api_model_experiment, self.model, mock_api)
+        self.assertEqual(model_experiment.variant, "samples")
+
+    def test_start_time_property(self):
+        mock_api = Mock()
+        model_experiment = ModelExperiment(self.api_model_experiment, self.model, mock_api)
+        self.assertIsNotNone(model_experiment.start_time)
+        self.assertEqual(model_experiment.start_time, "2024-01-01T00:00:00Z")
+
+    def test_start_time_property_samples_variant(self):
+        from openapi_client.models.variantdetails import Variantdetails
+        from openapi_client.models.samples_details import SamplesDetails
+
+        mock_api = Mock()
+        api_model_experiment = create_model_experiment(variantDetails=Variantdetails(actual_instance=SamplesDetails()))
+        model_experiment = ModelExperiment(api_model_experiment, self.model, mock_api)
+        self.assertIsNone(model_experiment.start_time)
+
+    def test_end_time_property(self):
+        mock_api = Mock()
+        model_experiment = ModelExperiment(self.api_model_experiment, self.model, mock_api)
+        self.assertIsNotNone(model_experiment.end_time)
+        self.assertEqual(model_experiment.end_time, "2024-01-01T12:00:00Z")
+
+    def test_end_time_property_samples_variant(self):
+        from openapi_client.models.variantdetails import Variantdetails
+        from openapi_client.models.samples_details import SamplesDetails
+
+        mock_api = Mock()
+        api_model_experiment = create_model_experiment(variantDetails=Variantdetails(actual_instance=SamplesDetails()))
+        model_experiment = ModelExperiment(api_model_experiment, self.model, mock_api)
+        self.assertIsNone(model_experiment.end_time)
 
     def test_used_for_training_property(self):
         mock_api = Mock()

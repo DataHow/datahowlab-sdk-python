@@ -161,6 +161,7 @@ class TestProject(unittest.TestCase):
         models = list(project.get_models(tags={"version": "v1"}))
 
         self.assertEqual(len(models), 2)
+        # Tags are converted to nested format for OpenAPI
         self.mock_api.get_models_api_v1_projects_project_id_models_get.assert_called_once_with(
-            project_id="proj-123", search=None, name=None, tags={"version": "v1"}, model_type=None, skip=0, limit=10
+            project_id="proj-123", search=None, name=None, tags={"version": {"version": "v1"}}, model_type=None, skip=0, limit=10
         )

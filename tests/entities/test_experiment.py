@@ -1,9 +1,12 @@
 import unittest
-from datetime import datetime
 from unittest.mock import Mock
 
 from openapi_client.models.experiment import Experiment as OpenAPIExperiment
 from openapi_client.models.process_unit_code import ProcessUnitCode
+from openapi_client.models.run_details import RunDetails
+from openapi_client.models.samples_details import SamplesDetails
+from openapi_client.models.variantdetails import Variantdetails
+from openapi_client.models.variantdetails1 import Variantdetails1
 
 from dhl_sdk.entities.experiment import Experiment, ExperimentRequest
 from dhl_sdk.entities.product import Product
@@ -73,23 +76,69 @@ class TestExperiment(unittest.TestCase):
         experiment = Experiment(self.api_experiment, mock_api)
         self.assertEqual(experiment.description, "A test experiment")
 
-    def test_start_time_property(self):
+    def test_process_unit_property(self):
         mock_api = Mock()
         experiment = Experiment(self.api_experiment, mock_api)
-        self.assertIsNotNone(experiment.start_time)
-        self.assertEqual(experiment.start_time, "2024-01-01T00:00:00Z")
+        self.assertEqual(experiment.process_unit, ProcessUnitCode.BR)
 
-    def test_start_time_property_none(self):
+    def test_variant_details_property(self):
         mock_api = Mock()
-        self.api_experiment.start_time = None
         experiment = Experiment(self.api_experiment, mock_api)
-        self.assertIsNone(experiment.start_time)
+        self.assertIsNotNone(experiment.variant_details)
+        self.assertIsInstance(experiment.variant_details, Variantdetails)
+        self.assertIsInstance(experiment.variant_details.actual_instance, RunDetails)
+
+    def test_extra_property(self):
+        mock_api = Mock()
+        api_experiment = create_experiment(extra={"key1": "value1", "key2": 42})
+        experiment = Experiment(api_experiment, mock_api)
+        extra = experiment.extra
+        self.assertIsNotNone(extra)
+        self.assertIsInstance(extra, dict)
+        self.assertEqual(extra["key1"], "value1")  # pyright: ignore[reportOptionalSubscript] - Checked above
+        self.assertEqual(extra["key2"], 42)  # pyright: ignore[reportOptionalSubscript] - Checked above
+
+    def test_extra_property_none(self):
+        mock_api = Mock()
+        api_experiment = create_experiment(extra=None)
+        experiment = Experiment(api_experiment, mock_api)
+        self.assertIsNone(experiment.extra)
 
     def test_variant_property(self):
         mock_api = Mock()
         experiment = Experiment(self.api_experiment, mock_api)
         self.assertIsNotNone(experiment.variant)
         self.assertEqual(experiment.variant, "run")
+
+    def test_variant_property_samples(self):
+        mock_api = Mock()
+        api_experiment = create_experiment(variantDetails=Variantdetails(actual_instance=SamplesDetails()))
+        experiment = Experiment(api_experiment, mock_api)
+        self.assertEqual(experiment.variant, "samples")
+
+    def test_start_time_property(self):
+        mock_api = Mock()
+        experiment = Experiment(self.api_experiment, mock_api)
+        self.assertIsNotNone(experiment.start_time)
+        self.assertEqual(experiment.start_time, "2024-01-01T00:00:00Z")
+
+    def test_start_time_property_samples_variant(self):
+        mock_api = Mock()
+        api_experiment = create_experiment(variantDetails=Variantdetails(actual_instance=SamplesDetails()))
+        experiment = Experiment(api_experiment, mock_api)
+        self.assertIsNone(experiment.start_time)
+
+    def test_end_time_property(self):
+        mock_api = Mock()
+        experiment = Experiment(self.api_experiment, mock_api)
+        self.assertIsNotNone(experiment.end_time)
+        self.assertEqual(experiment.end_time, "2024-01-01T12:00:00Z")
+
+    def test_end_time_property_samples_variant(self):
+        mock_api = Mock()
+        api_experiment = create_experiment(variantDetails=Variantdetails(actual_instance=SamplesDetails()))
+        experiment = Experiment(api_experiment, mock_api)
+        self.assertIsNone(experiment.end_time)
 
     def test_tags_property(self):
         mock_api = Mock()
@@ -231,13 +280,13 @@ class TestExperimentRequest(unittest.TestCase):
         self.product = Product(api_product, mock_api)
 
     def test_new(self):
+        variant_details = Variantdetails(actual_instance=RunDetails(startTime="2024-01-01T00:00:00Z", endTime="2024-01-01T12:00:00Z"))
         request = ExperimentRequest.new(
             name="New Experiment",
             description="New experiment description",
             product=self.product,
             process_unit=ProcessUnitCode.BR,
-            start_time=datetime(2024, 1, 1, 0, 0, 0),
-            end_time=datetime(2024, 1, 1, 12, 0, 0),
+            variant_details=variant_details,
             data={VAR_1_ID: create_raw_experiment_data_value([5.5, 6.5], [1704067200, 1704070800])},
         )
         self.assertIsNotNone(request)
@@ -249,8 +298,7 @@ class TestExperimentRequest(unittest.TestCase):
             product=self.product,
             subunit="A",
             process_unit=ProcessUnitCode.BR,
-            start_time=datetime(2024, 1, 1, 0, 0, 0),
-            end_time=datetime(2024, 1, 1, 12, 0, 0),
+            variant_details=Variantdetails(actual_instance=RunDetails(startTime="2024-01-01T00:00:00Z", endTime="2024-01-01T12:00:00Z")),
             data={VAR_1_ID: create_raw_experiment_data_value([5.5, 6.5], [1704067200, 1704070800])},
         )
         self.assertIsNotNone(request)
@@ -261,8 +309,7 @@ class TestExperimentRequest(unittest.TestCase):
             description="New experiment description",
             product=self.product,
             process_unit=ProcessUnitCode.BR,
-            start_time=datetime(2024, 1, 1, 0, 0, 0),
-            end_time=datetime(2024, 1, 1, 12, 0, 0),
+            variant_details=Variantdetails(actual_instance=RunDetails(startTime="2024-01-01T00:00:00Z", endTime="2024-01-01T12:00:00Z")),
             data={VAR_1_ID: create_raw_experiment_data_value([5.5, 6.5], [1704067200, 1704070800])},
             tags={"tag1": "value1"},
         )
@@ -274,8 +321,7 @@ class TestExperimentRequest(unittest.TestCase):
             description="New experiment description",
             product=self.product,
             process_unit=ProcessUnitCode.BR,
-            start_time=datetime(2024, 1, 1, 0, 0, 0),
-            end_time=datetime(2024, 1, 1, 12, 0, 0),
+            variant_details=Variantdetails(actual_instance=RunDetails(startTime="2024-01-01T00:00:00Z", endTime="2024-01-01T12:00:00Z")),
             data={VAR_1_ID: create_raw_experiment_data_value([5.5, 6.5], [1704067200, 1704070800])},
             extra={"extra1": "value1"},
         )
@@ -292,8 +338,7 @@ class TestExperimentRequest(unittest.TestCase):
             description="New experiment description",
             product=self.product,
             process_unit=ProcessUnitCode.BR,
-            start_time=datetime(2024, 1, 1, 0, 0, 0),
-            end_time=datetime(2024, 1, 1, 12, 0, 0),
+            variant_details=Variantdetails(actual_instance=RunDetails(startTime="2024-01-01T00:00:00Z", endTime="2024-01-01T12:00:00Z")),
             data=data,
         )
         self.assertIsNotNone(request)
@@ -304,12 +349,11 @@ class TestExperimentRequest(unittest.TestCase):
             description="New experiment description",
             product=self.product,
             process_unit=ProcessUnitCode.BR,
-            start_time=datetime(2024, 1, 1, 0, 0, 0),
-            end_time=datetime(2024, 1, 1, 12, 0, 0),
+            variant_details=Variantdetails(actual_instance=RunDetails(startTime="2024-01-01T00:00:00Z", endTime="2024-01-01T12:00:00Z")),
             data={VAR_1_ID: create_raw_experiment_data_value([5.5, 6.5], [1704067200, 1704070800])},
         )
         result = str(request)
-        self.assertEqual(result, "ExperimentRequest(TEST_PROD-New Experiment)")
+        self.assertEqual(result, "ExperimentRequest(New Experiment)")
 
     def test_str_with_subunit(self):
         request = ExperimentRequest.new(
@@ -318,12 +362,11 @@ class TestExperimentRequest(unittest.TestCase):
             product=self.product,
             subunit="A",
             process_unit=ProcessUnitCode.BR,
-            start_time=datetime(2024, 1, 1, 0, 0, 0),
-            end_time=datetime(2024, 1, 1, 12, 0, 0),
+            variant_details=Variantdetails(actual_instance=RunDetails(startTime="2024-01-01T00:00:00Z", endTime="2024-01-01T12:00:00Z")),
             data={VAR_1_ID: create_raw_experiment_data_value([5.5, 6.5], [1704067200, 1704070800])},
         )
         result = str(request)
-        self.assertEqual(result, "ExperimentRequest(TEST_PROD-New Experiment-A)")
+        self.assertEqual(result, "ExperimentRequest(New Experiment)")
 
     def test_create(self):
         mock_api = Mock()
@@ -342,8 +385,7 @@ class TestExperimentRequest(unittest.TestCase):
             description="Created experiment",
             product=self.product,
             process_unit=ProcessUnitCode.BR,
-            start_time=datetime(2024, 1, 1, 0, 0, 0),
-            end_time=datetime(2024, 1, 1, 12, 0, 0),
+            variant_details=Variantdetails(actual_instance=RunDetails(startTime="2024-01-01T00:00:00Z", endTime="2024-01-01T12:00:00Z")),
             data={VAR_1_ID: create_raw_experiment_data_value([5.5, 6.5], [1704067200, 1704070800])},
         )
         experiment = request.create(mock_client)
@@ -371,8 +413,7 @@ class TestExperimentRequest(unittest.TestCase):
             product=self.product,
             subunit="B",
             process_unit=ProcessUnitCode.BR,
-            start_time=datetime(2024, 1, 1, 0, 0, 0),
-            end_time=datetime(2024, 1, 1, 12, 0, 0),
+            variant_details=Variantdetails(actual_instance=RunDetails(startTime="2024-01-01T00:00:00Z", endTime="2024-01-01T12:00:00Z")),
             data={
                 VAR_1_ID: create_raw_experiment_data_value([5.5, 6.5], [1704067200, 1704070800]),
                 VAR_2_ID: create_raw_experiment_data_value([10.0, 11.0], [1704067200, 1704070800]),
@@ -389,13 +430,12 @@ class TestExperimentRequest(unittest.TestCase):
 
     def test_from_compat_data(self):
         from dhl_sdk.entities.variable import Variable
-        from openapi_client.models.variantdetails import Variantdetails
-        from openapi_client.models.numeric_details_output import NumericDetailsOutput
-        from openapi_client.models.categorical_details_output import CategoricalDetailsOutput
+        from openapi_client.models.numeric_details import NumericDetails
+        from openapi_client.models.categorical_details import CategoricalDetails
 
         # Create mock variables with different types
-        mock_var_1 = create_variable(id=VAR_1_ID, code="TEMP", variantDetails=Variantdetails(actual_instance=NumericDetailsOutput()))
-        mock_var_2 = create_variable(id=VAR_2_ID, code="STATUS", variantDetails=Variantdetails(actual_instance=CategoricalDetailsOutput()))
+        mock_var_1 = create_variable(id=VAR_1_ID, code="TEMP", variantDetails=Variantdetails1(actual_instance=NumericDetails()))
+        mock_var_2 = create_variable(id=VAR_2_ID, code="STATUS", variantDetails=Variantdetails1(actual_instance=CategoricalDetails()))
 
         variables = [Variable(mock_var_1), Variable(mock_var_2)]
 
@@ -439,13 +479,12 @@ class TestExperimentRequest(unittest.TestCase):
 
     def test_from_compat_data_with_flow_variant(self):
         from dhl_sdk.entities.variable import Variable
-        from openapi_client.models.variantdetails import Variantdetails
-        from openapi_client.models.flow_details_output import FlowDetailsOutput
+        from openapi_client.models.flow_details import FlowDetails
         from openapi_client.models.flow_type import FlowType
 
         # Create mock variable with flow type
         mock_var_1 = create_variable(
-            id=VAR_1_ID, code="FLOW_RATE", variantDetails=Variantdetails(actual_instance=FlowDetailsOutput(type=FlowType.CONTI))
+            id=VAR_1_ID, code="FLOW_RATE", variantDetails=Variantdetails1(actual_instance=FlowDetails(type=FlowType.CONTI))
         )
 
         variables = [Variable(mock_var_1)]
@@ -470,15 +509,14 @@ class TestExperimentRequest(unittest.TestCase):
 
     def test_from_compat_data_non_unique_codes(self):
         from dhl_sdk.entities.variable import Variable
-        from openapi_client.models.variantdetails import Variantdetails
-        from openapi_client.models.numeric_details_output import NumericDetailsOutput
+        from openapi_client.models.numeric_details import NumericDetails
 
         # Create mock variables with the same code
-        mock_var_1 = create_variable(id=VAR_1_ID, code="TEMP", variantDetails=Variantdetails(actual_instance=NumericDetailsOutput()))
+        mock_var_1 = create_variable(id=VAR_1_ID, code="TEMP", variantDetails=Variantdetails1(actual_instance=NumericDetails()))
         mock_var_2 = create_variable(
             id=VAR_2_ID,
             code="TEMP",  # Duplicate code
-            variantDetails=Variantdetails(actual_instance=NumericDetailsOutput()),
+            variantDetails=Variantdetails1(actual_instance=NumericDetails()),
         )
 
         variables = [Variable(mock_var_1), Variable(mock_var_2)]
@@ -496,11 +534,10 @@ class TestExperimentRequest(unittest.TestCase):
 
     def test_from_compat_data_spectra_not_supported(self):
         from dhl_sdk.entities.variable import Variable
-        from openapi_client.models.variantdetails import Variantdetails
-        from openapi_client.models.spectrum_details_output import SpectrumDetailsOutput
+        from openapi_client.models.spectrum_details import SpectrumDetails
 
         # Create mock variable with spectrum type
-        mock_var_1 = create_variable(id=VAR_1_ID, code="SPECTRUM", variantDetails=Variantdetails(actual_instance=SpectrumDetailsOutput()))
+        mock_var_1 = create_variable(id=VAR_1_ID, code="SPECTRUM", variantDetails=Variantdetails1(actual_instance=SpectrumDetails()))
 
         variables = [Variable(mock_var_1)]
 
@@ -517,11 +554,10 @@ class TestExperimentRequest(unittest.TestCase):
 
     def test_from_compat_data_unknown_variable_code(self):
         from dhl_sdk.entities.variable import Variable
-        from openapi_client.models.variantdetails import Variantdetails
-        from openapi_client.models.numeric_details_output import NumericDetailsOutput
+        from openapi_client.models.numeric_details import NumericDetails
 
         # Create mock variable
-        mock_var_1 = create_variable(id=VAR_1_ID, code="TEMP", variantDetails=Variantdetails(actual_instance=NumericDetailsOutput()))
+        mock_var_1 = create_variable(id=VAR_1_ID, code="TEMP", variantDetails=Variantdetails1(actual_instance=NumericDetails()))
 
         variables = [Variable(mock_var_1)]
 
