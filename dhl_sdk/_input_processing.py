@@ -9,6 +9,7 @@ import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, Protocol, Union
+import uuid
 
 import numpy as np
 
@@ -342,6 +343,7 @@ class CultivationPropagationPreprocessor(Preprocessor):
         json_data = PredictionPipelineRequest(
             instances=instances,
             metadata=Metadata(
+                experiments=[OnlyId(id=str(uuid.uuid4()))],
                 variables=[OnlyId(id=var.id) for var in input_variables],
             ),
             stages=[PipelineStage(config=self.prediction_config, id=self.model.id)],
