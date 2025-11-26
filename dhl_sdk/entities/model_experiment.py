@@ -1,23 +1,24 @@
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, final
 from typing_extensions import override
 
 if TYPE_CHECKING:
     from openapi_client.api.default_api import DefaultApi
     from openapi_client.models.model_experiment import ModelExperiment as OpenAPIModelExperiment
     from openapi_client.models.tabularized_experiment_data import TabularizedExperimentData
+    from openapi_client.models.process_unit_code import ProcessUnitCode
+    from openapi_client.models.variantdetails import Variantdetails
     from dhl_sdk.entities.product import Product
     from dhl_sdk.entities.model import Model
     from dhl_sdk.entities.model_variable import ModelVariable
 
 
+@final
 class ModelExperiment:
-    _model_experiment: "OpenAPIModelExperiment"
-    _model: "Model"
-
-    def __init__(self, model_experiment: "OpenAPIModelExperiment", model: "Model"):
+    def __init__(self, model_experiment: "OpenAPIModelExperiment", model: "Model", api: "DefaultApi"):
         self._model_experiment = model_experiment
         self._model = model
+        self._api = api
 
     @override
     def __str__(self) -> str:
@@ -40,29 +41,117 @@ class ModelExperiment:
         return self._model_experiment.description
 
     @property
-    def start_time(self) -> str | None:
-        return self._model_experiment.start_time
+    def process_unit(self) -> "ProcessUnitCode":
+        """Process unit code for the model experiment."""
+        return self._model_experiment.process_unit
+
+    @property
+    def variant_details(self) -> "Variantdetails":
+        """
+        Variant-specific details for the model experiment.
+
+        Returns
+        -------
+        Variantdetails
+            Union of RunDetails (with start_time/end_time) or SamplesDetails.
+        """
+        return self._model_experiment.variant_details
+
+    @property
+    def extra(self) -> dict[str, Any] | None:  # pyright: ignore[reportExplicitAny] - Extra metadata accepts arbitrary user data
+        """
+        Extra experiment metadata.
+
+        Returns
+        -------
+        dict[str, Any] | None
+            Dictionary of extra data or None if not set.
+        """
+        return self._model_experiment.extra
 
     @property
     def variant(self) -> str:
-        return self._model_experiment.variant.value
+        """
+        Extract variant type string from variant_details (backward compatibility).
+
+        Returns
+        -------
+        str
+            'run' for RunDetails variant, 'samples' for SamplesDetails variant.
+        """
+        from openapi_client.models.run_details import RunDetails
+        from openapi_client.models.samples_details import SamplesDetails
+
+        actual = self.variant_details.actual_instance
+        if isinstance(actual, RunDetails):
+            return "run"
+        elif isinstance(actual, SamplesDetails):
+            return "samples"
+        else:
+            return "unknown"
 
     @property
-    def used_for_training(self) -> bool | None:
+    def start_time(self) -> str | None:
+        """
+        Start time of the experiment (only for 'run' variant).
+
+        Returns
+        -------
+        str | None
+            Start time string if variant is RunDetails, None otherwise.
+        """
+        from openapi_client.models.run_details import RunDetails
+
+        actual = self.variant_details.actual_instance
+        if isinstance(actual, RunDetails):
+            return actual.start_time
+        return None
+
+    @property
+    def end_time(self) -> str | None:
+        """
+        End time of the experiment (only for 'run' variant).
+
+        Returns
+        -------
+        str | None
+            End time string if variant is RunDetails, None otherwise.
+        """
+        from openapi_client.models.run_details import RunDetails
+
+        actual = self.variant_details.actual_instance
+        if isinstance(actual, RunDetails):
+            return actual.end_time
+        return None
+
+    @property
+    def used_for_training(self) -> bool:
         return self._model_experiment.used_for_training
 
-    def get_data(self, api: "DefaultApi") -> "TabularizedExperimentData":
+    @property
+    def tags(self) -> dict[str, str]:
+        """
+        Tags associated with the model experiment.
+
+        Returns
+        -------
+        dict[str, str]
+            Dictionary of tag key-value pairs. Returns empty dict if no tags.
+        """
+        return self._model_experiment.tags or {}
+
+    def get_data(self) -> "TabularizedExperimentData":
         """
         Retrieve experiment data in tabularized format.
 
         Returns:
             TabularizedExperimentData with shared timestamps at top level and data per variable
         """
-        return api.get_model_experiment_data_api_v1_models_model_id_experiments_experiment_id_data_get(
+        return self._api.get_model_experiment_data_api_v1_models_model_id_experiments_experiment_id_data_get(
             model_id=self._model.id, experiment_id=self.id
         )
 
-    def get_data_compat(self, api: "DefaultApi") -> dict[str, dict[str, Any]]:  # pyright: ignore[reportExplicitAny] - Legacy compatibility method returns dynamic untyped data
+    def get_data_compat(self) -> dict[str, dict[str, Any]]:  # pyright: ignore[reportExplicitAny] - Legacy compatibility method returns dynamic untyped data
         """
         Retrieve experiment data in compat format (legacy format).
 
@@ -76,8 +165,8 @@ class ModelExperiment:
         """
         from openapi_client.models.scalars_data import ScalarsData
 
-        raw_data = self.get_data(api)
-        variables = self.get_variables(api)
+        raw_data = self.get_data()
+        variables = self.get_variables()
 
         # Create a mapping from variable ID to variable
         var_id_to_var = {var.id: var for var in variables}
@@ -110,14 +199,14 @@ class ModelExperiment:
 
         return result
 
-    def get_variables(self, api: "DefaultApi") -> "Iterator[ModelVariable]":
+    def get_variables(self) -> "Iterator[ModelVariable]":
         """Get all variables associated with this model experiment."""
         # Delegate to the Model's get_variables method
-        return self._model.get_variables(api)
+        return self._model.get_variables()
 
-    def get_product(self, api: "DefaultApi") -> "Product":
+    def get_product(self) -> "Product":
         """Get the product associated with this model experiment."""
         from dhl_sdk.entities.product import Product
 
-        api_product = api.get_product_by_id_api_v1_products_product_id_get(product_id=self.product_id)
-        return Product(api_product)
+        api_product = self._api.get_product_by_id_api_v1_products_product_id_get(product_id=self.product_id)
+        return Product(api_product, self._api)

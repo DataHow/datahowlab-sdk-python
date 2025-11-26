@@ -1,17 +1,15 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, final
 from typing_extensions import override
 
 if TYPE_CHECKING:
-    from openapi_client.api.default_api import DefaultApi
+    from dhl_sdk.client import DataHowLabClient
     from openapi_client.models.variable import Variable as OpenAPIVariable
     from openapi_client.models.variable_create import VariableCreate
-    from openapi_client.models.variantdetails import Variantdetails
     from openapi_client.models.variantdetails1 import Variantdetails1
 
 
+@final
 class Variable:
-    _variable: "OpenAPIVariable"
-
     def __init__(self, variable: "OpenAPIVariable"):
         self._variable = variable
 
@@ -44,12 +42,47 @@ class Variable:
         return self._variable.group
 
     @property
-    def variant_details(self) -> "Variantdetails":
+    def variant_details(self) -> "Variantdetails1":
         return self._variable.variant_details
 
     @property
-    def tags(self) -> dict[str, str] | None:
-        return self._variable.tags
+    def variant(self) -> str:
+        """Extract variant type string from variant_details for backward compatibility."""
+        from openapi_client.models.numeric_details import NumericDetails
+        from openapi_client.models.categorical_details import CategoricalDetails
+        from openapi_client.models.logical_details import LogicalDetails
+        from openapi_client.models.flow_details import FlowDetails
+        from openapi_client.models.spectrum_details import SpectrumDetails
+
+        actual = self.variant_details.actual_instance
+        if isinstance(actual, NumericDetails):
+            return "numeric"
+        elif isinstance(actual, CategoricalDetails):
+            return "categorical"
+        elif isinstance(actual, LogicalDetails):
+            return "logical"
+        elif isinstance(actual, FlowDetails):
+            return "flow"
+        elif isinstance(actual, SpectrumDetails):
+            return "spectrum"
+        else:
+            return "unknown"
+
+    @property
+    def tags(self) -> dict[str, str]:
+        """
+        Tags associated with the variable.
+
+        Returns
+        -------
+        dict[str, str]
+            Dictionary of tag key-value pairs. Returns empty dict if no tags.
+        """
+        return self._variable.tags or {}
+
+    @property
+    def aggregation(self) -> str:
+        return self._variable.aggregation.value
 
 
 class VariableRequest:
@@ -85,6 +118,12 @@ class VariableRequest:
         )
         return VariableRequest(variable_create)
 
-    def create(self, api: "DefaultApi") -> Variable:
-        created_variable = api.create_variable_api_v1_variables_post(variable_create=self._variable_create)
+    def create(self, client: "DataHowLabClient") -> Variable:
+        from dhl_sdk.error_handler import handle_validation_errors
+
+        @handle_validation_errors
+        def _create():
+            return client.api.create_variable_api_v1_variables_post(variable_create=self._variable_create)
+
+        created_variable = _create()
         return Variable(created_variable)
