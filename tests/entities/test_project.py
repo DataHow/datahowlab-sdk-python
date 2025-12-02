@@ -49,6 +49,28 @@ class TestProject(unittest.TestCase):
         project = Project(self.api_project, self.mock_api)
         self.assertIsNotNone(project.process_format)
 
+    def test_tags_property(self):
+        api_project = create_project(tags={"manufacturer": "example", "location": "plant1"})
+        project = Project(api_project, self.mock_api)
+        tags = project.tags
+        self.assertIsInstance(tags, dict)
+        self.assertEqual(tags["manufacturer"], "example")
+        self.assertEqual(tags["location"], "plant1")
+
+    def test_tags_property_empty(self):
+        api_project = create_project(tags=None)
+        project = Project(api_project, self.mock_api)
+        tags = project.tags
+        self.assertIsInstance(tags, dict)
+        self.assertEqual(len(tags), 0)
+
+    def test_tags_property_empty_dict(self):
+        api_project = create_project(tags={})
+        project = Project(api_project, self.mock_api)
+        tags = project.tags
+        self.assertIsInstance(tags, dict)
+        self.assertEqual(len(tags), 0)
+
     def test_get_models_empty(self):
         self.mock_api.get_models_api_v1_projects_project_id_models_get.return_value = []
         project = Project(self.api_project, self.mock_api)
@@ -56,7 +78,9 @@ class TestProject(unittest.TestCase):
         models = list(project.get_models())
 
         self.assertEqual(len(models), 0)
-        self.mock_api.get_models_api_v1_projects_project_id_models_get.assert_called_once_with(project_id="proj-123", skip=0, limit=10)
+        self.mock_api.get_models_api_v1_projects_project_id_models_get.assert_called_once_with(
+            project_id="proj-123", search=None, name=None, tags=None, model_type=None, skip=0, limit=10
+        )
 
     def test_get_models_with_results(self):
         mock_model1 = create_model(name="Test Model 1")
@@ -87,3 +111,57 @@ class TestProject(unittest.TestCase):
 
         self.assertEqual(len(models), 15)
         self.assertEqual(self.mock_api.get_models_api_v1_projects_project_id_models_get.call_count, 2)
+
+    def test_get_models_with_model_type_filter(self):
+        from openapi_client.models.model_type import ModelType
+
+        mock_model1 = create_model(name="Test Model 1", type=ModelType.PROPAGATION)
+        mock_model2 = create_model(name="Test Model 2", type=ModelType.PROPAGATION)
+
+        self.mock_api.get_models_api_v1_projects_project_id_models_get.return_value = [mock_model1, mock_model2]
+        project = Project(self.api_project, self.mock_api)
+
+        models = list(project.get_models(model_type=ModelType.PROPAGATION))
+
+        self.assertEqual(len(models), 2)
+        self.mock_api.get_models_api_v1_projects_project_id_models_get.assert_called_once_with(
+            project_id="proj-123", search=None, name=None, tags=None, model_type=[ModelType.PROPAGATION], skip=0, limit=10
+        )
+
+    def test_get_models_with_model_type_list_filter(self):
+        from openapi_client.models.model_type import ModelType
+
+        mock_model1 = create_model(name="Test Model 1", type=ModelType.PROPAGATION)
+        mock_model2 = create_model(name="Test Model 2", type=ModelType.HISTORICAL)
+        mock_model3 = create_model(name="Test Model 3", type=ModelType.COMBINED)
+
+        self.mock_api.get_models_api_v1_projects_project_id_models_get.return_value = [mock_model1, mock_model2, mock_model3]
+        project = Project(self.api_project, self.mock_api)
+
+        models = list(project.get_models(model_type=[ModelType.PROPAGATION, ModelType.HISTORICAL]))
+
+        self.assertEqual(len(models), 3)
+        self.mock_api.get_models_api_v1_projects_project_id_models_get.assert_called_once_with(
+            project_id="proj-123",
+            search=None,
+            name=None,
+            tags=None,
+            model_type=[ModelType.PROPAGATION, ModelType.HISTORICAL],
+            skip=0,
+            limit=10,
+        )
+
+    def test_get_models_with_tags_filter(self):
+        mock_model1 = create_model(name="Test Model 1", tags={"version": "v1"})
+        mock_model2 = create_model(name="Test Model 2", tags={"version": "v1"})
+
+        self.mock_api.get_models_api_v1_projects_project_id_models_get.return_value = [mock_model1, mock_model2]
+        project = Project(self.api_project, self.mock_api)
+
+        models = list(project.get_models(tags={"version": "v1"}))
+
+        self.assertEqual(len(models), 2)
+        # Tags are converted to nested format for OpenAPI
+        self.mock_api.get_models_api_v1_projects_project_id_models_get.assert_called_once_with(
+            project_id="proj-123", search=None, name=None, tags={"version": {"version": "v1"}}, model_type=None, skip=0, limit=10
+        )
