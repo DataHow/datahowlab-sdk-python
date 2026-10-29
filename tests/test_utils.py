@@ -543,6 +543,54 @@ class TestCultivationUtils(unittest.TestCase):
             {"timestamps": [1, 2, 3], "steps": [0, 1, 2], "values": [1.0, 2.0, 3.0]},
         )
 
+        # valid case with startingIndex != 0 and X values up to the starting index
+        prediction_config = PredictionRequestConfig(startingIndex=2)
+        inputs = {
+            "var1": [10, None, 12],
+            "var2": [20, 21, 22],
+            "var3": [1, 2, 3],
+            "var4": [40],
+        }
+        processor = CultivationPropagationPreprocessor(
+            timestamps, "s", inputs, prediction_config, model
+        )
+        processor.validate()
+        outputs = processor.format()
+        instance_x = outputs[0]["instances"][0][0]
+        self.assertEqual(
+            instance_x,
+            {"timestamps": [1, 2, 3], "steps": [0, 1, 2], "values": [10.0, None, 12.0]},
+        )
+
+        # invalid case: X values neither the initial value nor the values up to the starting index
+        prediction_config = PredictionRequestConfig(startingIndex=2)
+        inputs = {"var1": [10, 11], "var2": [20], "var3": [1, 2, 3], "var4": [40]}
+        processor = CultivationPropagationPreprocessor(
+            timestamps, "s", inputs, prediction_config, model
+        )
+        with self.assertRaises(InvalidInputsException) as ex:
+            processor.validate()
+        self.assertTrue(
+            ex.exception.message.startswith("Input var1 only requires initial values")
+        )
+
+        # invalid case: X value missing at the starting index
+        inputs = {
+            "var1": [10, 11, None],
+            "var2": [20],
+            "var3": [1, 2, 3],
+            "var4": [40],
+        }
+        processor = CultivationPropagationPreprocessor(
+            timestamps, "s", inputs, prediction_config, model
+        )
+        with self.assertRaises(InvalidInputsException) as ex:
+            processor.validate()
+        self.assertEqual(
+            ex.exception.message,
+            "Input var1 must have a valid numeric value at the first timestamp and at the starting index",
+        )
+
         # valid case where filtering and startingIndex collide
         prediction_config = PredictionRequestConfig(
             startingIndex=1,

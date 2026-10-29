@@ -254,7 +254,8 @@ class CultivationPropagationPreprocessor(Preprocessor):
             - Garantees that all the mandatory model variables are present in the inputs
             - Garantees that the inputs that need to be complete for the recipe
                 have the same length as the timestamps
-            - Garantees that the initial condition variables only have one value
+            - Garantees that the initial condition variables only have one value,
+                or for X variables, their values up to the starting index
 
         Returns
         -------
@@ -314,9 +315,11 @@ class CultivationPropagationPreprocessor(Preprocessor):
                 if variable.matches_key(key):
                     formatted_inputs[variable.id] = {}
                     # insert initial value only for prop. pred. vars, if no filtering present
+                    # and only the value at the starting index is given
                     if (
                         groupcode_is_propagation_prediction(variable.group.code)
                         and self.prediction_config.filtering_config is None
+                        and len(value) == 1
                     ):
                         formatted_inputs[variable.id]["values"] = [value[0]]
                         formatted_inputs[variable.id]["timestamps"] = [
@@ -685,6 +688,21 @@ def _validate_propagation_with_variables(
                         )
                     )
 
+            elif groupcode_is_propagation_prediction(variable.group.code):
+                # without filtering, X inputs are either the initial value at the starting index,
+                # or the values from the first timestamp up to and including the starting index.
+                # Models that propagate from the start of the run (e.g. the continuous hybrid
+                # model) need the latter to predict from a starting index other than 0
+                history_length = prediction_config.starting_index + 1
+                if len(inputs[variable.code]) not in (1, history_length):
+                    raise InvalidInputsException(
+                        (
+                            f"Input {variable.code} only requires initial "
+                            f"values, so it must have a length of 1, or a length of "
+                            f"{history_length} to provide its values up to the starting index"
+                        )
+                    )
+
             else:
                 # validate if non time dependent inputs have length of 1 (only initial values)
                 if len(inputs[variable.code]) != 1:
@@ -705,6 +723,23 @@ def _validate_propagation_with_variables(
                     if not is_numeric(inputs[variable.code][0]):
                         raise InvalidInputsException(
                             f"Input {variable.code} must be a valid numeric value"
+                        )
+                elif (
+                    groupcode_is_propagation_prediction(variable.group.code)
+                    and len(inputs[variable.code]) > 1
+                ):
+                    # values up to the starting index may have gaps, but the first value
+                    # and the value at the starting index must not be missing
+                    values = inputs[variable.code]
+                    if not (is_numeric(values[0]) and is_numeric(values[-1])):
+                        raise InvalidInputsException(
+                            f"Input {variable.code} must have a valid numeric value "
+                            f"at the first timestamp and at the starting index"
+                        )
+                    if not all(value is None or is_numeric(value) for value in values):
+                        raise InvalidInputsException(
+                            f"All values of input {variable.code} must be "
+                            f"valid numeric values or None"
                         )
                 else:
                     if not all(is_numeric(value) for value in inputs[variable.code]):
