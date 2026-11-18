@@ -8,6 +8,7 @@ from dhl_sdk.authentication import APIKeyAuthentication
 from dhl_sdk.client import DataHowLabClient
 from dhl_sdk.crud import Result
 from dhl_sdk.db_entities import (
+    UnresolvedInstance,
     Experiment,
     File,
     FlowVariableReference,
@@ -691,3 +692,120 @@ class TestExperimentsEntity(unittest.TestCase):
                 },
             },
         )
+
+
+class TestExperimentGetData(unittest.TestCase):
+    def setUp(self):
+        self.volume_z = Variable.new(
+            code="Volume",
+            name="Initial volume",
+            description="",
+            variable_group="Z Variables",
+            variable_type=VariableNumeric(),
+            measurement_unit="mL",
+        )
+        self.volume_z.id = "volume-z-id"
+
+        self.volume_w = Variable.new(
+            code="Volume",
+            name="Volume",
+            description="",
+            variable_group="W Variables",
+            variable_type=VariableNumeric(),
+            measurement_unit="mL",
+        )
+        self.volume_w.id = "volume-w-id"
+
+        self.glucose = Variable.new(
+            code="Glc",
+            name="Glucose",
+            description="",
+            variable_group="X Variables",
+            variable_type=VariableNumeric(),
+            measurement_unit="g/L",
+        )
+        self.glucose.id = "glc-id"
+
+        product = Product.new("prod", "product 1", "product description")
+        product.id = "prod-id"
+
+        self.experiment = Experiment(
+            name="exp",
+            description="",
+            product=product,
+            variables=[self.volume_z, self.volume_w, self.glucose],
+            instances=[
+                {"column": "BRvol", "fileId": "file-1"},
+                {"column": "Volume", "fileId": "file-1"},
+                {"column": "Glc", "fileId": "file-1"},
+            ],
+        )
+
+        timeseries = {
+            "BRvol": {"timestamps": [0], "values": [209.1]},
+            "Volume": {"timestamps": [0, 1, 2], "values": [209.1, 200.4, 197.5]},
+            "Glc": {"timestamps": [0, 1], "values": [5.0, 4.2]},
+        }
+        self.download = patch.object(
+            File,
+            "download",
+            return_value=Mock(
+                headers={"content-type": "application/json"},
+                json=lambda: {"timeseries": timeseries},
+            ),
+        ).start()
+        self.addCleanup(patch.stopall)
+        self.client = Mock()
+
+    def test_key_by_id_returns_every_variable(self):
+        data = self.experiment.get_data(self.client, key_by="id")
+
+        self.assertEqual(
+            data,
+            {
+                "volume-z-id": {"timestamps": [0], "values": [209.1]},
+                "volume-w-id": {
+                    "timestamps": [0, 1, 2],
+                    "values": [209.1, 200.4, 197.5],
+                },
+                "glc-id": {"timestamps": [0, 1], "values": [5.0, 4.2]},
+            },
+        )
+        self.download.assert_called_once()
+
+    def test_key_by_code_keeps_first_shared_code_and_warns(self):
+        with self.assertWarnsRegex(UserWarning, r"\['Volume'\].*key_by='id'"):
+            data = self.experiment.get_data(self.client)
+
+        self.assertEqual(
+            data,
+            {
+                "Volume": {"timestamps": [0], "values": [209.1]},
+                "Glc": {"timestamps": [0, 1], "values": [5.0, 4.2]},
+            },
+        )
+
+    def test_key_by_code_returns_variable_whose_column_matches_another_code(self):
+        experiment = self.experiment.model_copy(
+            update={
+                "variables": [self.glucose, self.volume_w],
+                "instances": [
+                    UnresolvedInstance(column="BRvol", fileId="file-1"),
+                    UnresolvedInstance(column="Glc", fileId="file-1"),
+                ],
+            }
+        )
+
+        data = experiment.get_data(self.client)
+
+        self.assertEqual(
+            data,
+            {
+                "Glc": {"timestamps": [0], "values": [209.1]},
+                "Volume": {"timestamps": [0, 1], "values": [5.0, 4.2]},
+            },
+        )
+
+    def test_invalid_key_by_raises(self):
+        with self.assertRaises(ValueError):
+            self.experiment.get_data(self.client, key_by="name")

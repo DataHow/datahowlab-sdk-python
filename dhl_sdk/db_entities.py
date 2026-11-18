@@ -15,6 +15,7 @@ Classes:
 
 import copy
 import csv
+import warnings
 from abc import ABC, abstractmethod
 from enum import Enum
 from io import StringIO
@@ -854,18 +855,25 @@ class Experiment(BaseModel, DataBaseEntity):
 
         return True
 
-    def get_data(self, client: DataBaseClient) -> dict:
+    def get_data(
+        self, client: DataBaseClient, key_by: Literal["code", "id"] = "code"
+    ) -> dict:
         """Get experiment data from the API
 
         Parameters
         ----------
         client : DataBaseClient
             Client to use to get the data, i.e., DataHowLabClient
+        key_by : Literal["code", "id"], optional
+            Key the result by variable code or by variable id, by default "code".
+            Variable codes are only unique within a variable group, so when two
+            variables of the experiment share a code, only the first is returned
+            with "code". Use "id" to get every variable.
 
         Returns
         -------
         Dictionary with the data where:
-            key: variable code
+            key: variable code or variable id, depending on `key_by`
             value: a dictionary with the data for the variable, with "timestamps" and "values" keys
 
         Example:
@@ -878,13 +886,14 @@ class Experiment(BaseModel, DataBaseEntity):
 
         """
 
-        return self._get_data_inner(client, self.variables, self.instances)
+        return self._get_data_inner(client, self.variables, self.instances, key_by)
 
     def _get_data_inner(
         self,
         client: DataBaseClient,
         variables: list[Variable],
         instances: list[UnresolvedInstance],
+        key_by: Literal["code", "id"] = "code",
     ) -> dict:
         """Internal method to get experiment data from the API given the instances source
 
@@ -896,11 +905,13 @@ class Experiment(BaseModel, DataBaseEntity):
             list of Variables, giving the source for the data
         instances: list[UnresolvedInstance]
             list of UnresolvedInstances, giving the source for the data
+        key_by : Literal["code", "id"], optional
+            Key the result by variable code or by variable id, by default "code"
 
         Returns
         -------
         Dictionary with the data where:
-            key: variable code
+            key: variable code or variable id, depending on `key_by`
             value: a dictionary with the data for the variable, with "timestamps" and "values" keys
 
         Example:
@@ -913,6 +924,18 @@ class Experiment(BaseModel, DataBaseEntity):
 
         """
 
+        if key_by not in ("code", "id"):
+            raise ValueError(f"key_by must be 'code' or 'id', got '{key_by}'")
+
+        codes = [variable.code for variable in variables]
+        shared_codes = sorted({code for code in codes if codes.count(code) > 1})
+        if key_by == "code" and shared_codes:
+            warnings.warn(
+                f"Experiment '{self.name}' has several variables with the code(s) "
+                f"{shared_codes}. Only the first variable with each code is returned. "
+                "Use key_by='id' to get all of them."
+            )
+
         cache = {}
         experiment_data = {}
 
@@ -923,12 +946,12 @@ class Experiment(BaseModel, DataBaseEntity):
             else:
                 response = cache[instance.fileId]
 
-            if instance.column in experiment_data:
-                continue
-
             if response.headers["content-type"] == "application/json":
+                key = variable.code if key_by == "code" else variable.id
+                if key in experiment_data:
+                    continue
                 data = response.json()
-                experiment_data[variable.code] = data["timeseries"][instance.column]
+                experiment_data[key] = data["timeseries"][instance.column]
 
             elif response.headers["content-type"] == "text/csv":
                 csv_data = list(csv.reader(StringIO(response.text)))
@@ -942,7 +965,8 @@ class Experiment(BaseModel, DataBaseEntity):
                     raise InvalidVariantException()
 
                 data_rows = [row[1:] for row in csv_data]
-                experiment_data["spectra"] = {
+                key = "spectra" if key_by == "code" else variable.id
+                experiment_data[key] = {
                     spectra_ids: ids,
                     "values": data_rows,
                 }
