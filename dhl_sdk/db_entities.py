@@ -142,7 +142,7 @@ class FlowVariableReference(BaseModel):
         fraction_id: ID of fraction
     """
 
-    measurement_id: str = Field(alias="measurementId")
+    measurement_id: Optional[str] = Field(default=None, alias="measurementId")
     concentration_id: Optional[str] = Field(default=None, alias="concentrationId")
     fraction_id: Optional[str] = Field(default=None, alias="fractionId")
 

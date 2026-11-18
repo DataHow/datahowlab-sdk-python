@@ -46,7 +46,7 @@ class Group(Protocol):
 
 
 class FlowReferences(Protocol):
-    measurement_id: str
+    measurement_id: Optional[str]
     concentration_id: Optional[str]
     fraction_id: Optional[str]
 

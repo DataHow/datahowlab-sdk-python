@@ -416,6 +416,42 @@ class TestVariableEntity(unittest.TestCase):
             },
         )
 
+    def test_flow_variable_from_api_without_measurement_reference(self):
+        var = Variable(
+            id="feed-id",
+            code="FEED1",
+            name="Feed 1",
+            variant="flow",
+            flow={
+                "type": "bolus",
+                "references": [
+                    {"measurementId": "meas-id-111"},
+                    {"concentrationId": "conc-id-222"},
+                ],
+            },
+        )
+
+        references = var.variant_details.references
+        self.assertEqual(references[0].measurement_id, "meas-id-111")
+        self.assertIsNone(references[1].measurement_id)
+        self.assertEqual(references[1].concentration_id, "conc-id-222")
+
+    def test_new_flow_variable_without_measurement_reference_fails_validation(self):
+        var = Variable.new(
+            code="FEED1",
+            name="Feed 1",
+            description="description",
+            variable_group="Feeds/Flows",
+            variable_type=VariableFlow(type="bolus", references=[{}]),
+            measurement_unit="n",
+        )
+        client = Mock()
+        client.get.return_value = Mock(headers={"x-total-count": "0"})
+
+        with patch.object(var._validator, "is_imported", return_value=False):
+            with self.assertRaisesRegex(ImportValidationException, "measurement_id"):
+                var._validator.validate(var, client)
+
 
 class TestVariableRequests(unittest.TestCase):
     def setUp(self):
