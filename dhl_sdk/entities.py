@@ -46,6 +46,7 @@ from dhl_sdk._utils import (
     Predictions,
     PredictionResponse,
     get_id_list,
+    warn_on_shared_codes,
 )
 from dhl_sdk.crud import Client, CRUDClient, DataBaseClient, Result
 from dhl_sdk.db_entities import Experiment, Variable, UnresolvedInstance
@@ -84,7 +85,8 @@ class Dataset(BaseModel):
                 Client to use to get the data, i.e., DataHowLabClient
             key_by: Literal["code", "id"], optional
                 Key each experiment's data by variable code or by variable id,
-                by default "code". Use "id" when variables share a code.
+                by default "code". Use "id" when variables share a code. With "id",
+                spectra data is keyed by the spectrum variable id instead of "spectra".
 
         Returns:
         --------
@@ -94,6 +96,9 @@ class Dataset(BaseModel):
                     - "values": list with the values
                     - "timestamps": list with the timestamps for each value
         """
+
+        if key_by == "code":
+            warn_on_shared_codes(self.variables, f"Dataset '{self.name}'")
 
         run_data = []
         for i, experiment in enumerate(self.experiments):

@@ -1,5 +1,6 @@
 # pylint: disable=missing-docstring
 import unittest
+import warnings
 from unittest.mock import Mock, call, patch
 
 from pydantic import ValidationError
@@ -19,6 +20,7 @@ from dhl_sdk.db_entities import (
     VariableLogical,
     VariableNumeric,
 )
+from dhl_sdk.entities import Dataset
 from dhl_sdk.exceptions import ImportValidationException, NewEntityException
 from dhl_sdk.validators import ExperimentFileValidator
 
@@ -845,3 +847,75 @@ class TestExperimentGetData(unittest.TestCase):
     def test_invalid_key_by_raises(self):
         with self.assertRaises(ValueError):
             self.experiment.get_data(self.client, key_by="name")
+
+    def test_shared_code_warning_points_at_the_caller(self):
+        with self.assertWarns(UserWarning) as caught:
+            self.experiment.get_data(self.client)
+
+        self.assertEqual(caught.filename, __file__)
+
+    def test_dataset_warns_once_for_shared_codes(self):
+        dataset = Dataset(
+            id="dataset-id",
+            name="dataset",
+            description="",
+            variables=self.experiment.variables,
+            experiments=[self.experiment, self.experiment],
+            instances=[self.experiment.instances, self.experiment.instances],
+            client=self.client,
+        )
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            data = dataset.get_data(self.client)
+
+        self.assertEqual(len(data), 2)
+        self.assertEqual(len(caught), 1)
+        self.assertIn("Dataset 'dataset'", str(caught[0].message))
+        self.assertEqual(caught[0].filename, __file__)
+
+
+class TestExperimentGetSpectraData(unittest.TestCase):
+    def setUp(self):
+        spectrum = Variable(
+            id="spectrum-id",
+            code="Spectrum",
+            name="Spectrum",
+            variant="spectrum",
+            spectrum={"xAxis": {"dimension": 2}},
+        )
+        product = Product.new("prod", "product 1", "product description")
+        product.id = "prod-id"
+
+        self.experiment = Experiment(
+            name="exp",
+            description="",
+            product=product,
+            variables=[spectrum],
+            instances=[{"column": "1", "fileId": "spectra-file"}],
+        )
+
+        patch.object(
+            File,
+            "download",
+            return_value=Mock(
+                headers={"content-type": "text/csv"}, text="10,0.1,0.2\n20,0.3,0.4"
+            ),
+        ).start()
+        self.addCleanup(patch.stopall)
+        self.client = Mock()
+        self.spectra = {
+            "timestamps": ["10", "20"],
+            "values": [["0.1", "0.2"], ["0.3", "0.4"]],
+        }
+
+    def test_key_by_code_keys_spectra_as_spectra(self):
+        self.assertEqual(
+            self.experiment.get_data(self.client), {"spectra": self.spectra}
+        )
+
+    def test_key_by_id_keys_spectra_by_variable_id(self):
+        self.assertEqual(
+            self.experiment.get_data(self.client, key_by="id"),
+            {"spectrum-id": self.spectra},
+        )

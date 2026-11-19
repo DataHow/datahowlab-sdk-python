@@ -1,5 +1,6 @@
 """This module contains generic utility functions used in the SDK"""
 
+import warnings
 from enum import Enum
 import urllib.parse as urlparse
 from datetime import datetime
@@ -200,3 +201,16 @@ def is_date_in_format(date_string, date_format):
         return True
     except ValueError:
         return False
+
+
+def warn_on_shared_codes(variables: list, owner: str) -> None:
+    """Warn that only the first variable of each shared code is returned when keyed by code"""
+    codes = [variable.code for variable in variables]
+    shared_codes = sorted({code for code in codes if codes.count(code) > 1})
+    if shared_codes:
+        warnings.warn(
+            f"{owner} has several variables with the code(s) {shared_codes}. "
+            "Only the first variable with each code is returned. "
+            "Use key_by='id' to get all of them.",
+            stacklevel=3,
+        )

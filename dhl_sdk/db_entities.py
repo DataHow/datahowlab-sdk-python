@@ -15,7 +15,6 @@ Classes:
 
 import copy
 import csv
-import warnings
 from abc import ABC, abstractmethod
 from enum import Enum
 from io import StringIO
@@ -34,7 +33,7 @@ from dhl_sdk._constants import (
     VARIABLES_URL,
 )
 
-from dhl_sdk._utils import VariableGroupCodes
+from dhl_sdk._utils import VariableGroupCodes, warn_on_shared_codes
 from dhl_sdk.crud import Client, CRUDClient, DataBaseClient
 from dhl_sdk.exceptions import (
     ImportValidationException,
@@ -868,7 +867,8 @@ class Experiment(BaseModel, DataBaseEntity):
             Key the result by variable code or by variable id, by default "code".
             Variable codes are only unique within a variable group, so when two
             variables of the experiment share a code, only the first is returned
-            with "code". Use "id" to get every variable.
+            with "code". Use "id" to get every variable. With "id", spectra data is
+            keyed by the spectrum variable id instead of "spectra".
 
         Returns
         -------
@@ -885,6 +885,9 @@ class Experiment(BaseModel, DataBaseEntity):
         'var2': {"timestamps": [1,2,3], "values": [10.1, 12.2, 33.3]}}
 
         """
+
+        if key_by == "code":
+            warn_on_shared_codes(self.variables, f"Experiment '{self.name}'")
 
         return self._get_data_inner(client, self.variables, self.instances, key_by)
 
@@ -926,15 +929,6 @@ class Experiment(BaseModel, DataBaseEntity):
 
         if key_by not in ("code", "id"):
             raise ValueError(f"key_by must be 'code' or 'id', got '{key_by}'")
-
-        codes = [variable.code for variable in variables]
-        shared_codes = sorted({code for code in codes if codes.count(code) > 1})
-        if key_by == "code" and shared_codes:
-            warnings.warn(
-                f"Experiment '{self.name}' has several variables with the code(s) "
-                f"{shared_codes}. Only the first variable with each code is returned. "
-                "Use key_by='id' to get all of them."
-            )
 
         cache = {}
         experiment_data = {}
