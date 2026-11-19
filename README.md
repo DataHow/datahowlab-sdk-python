@@ -101,6 +101,12 @@ experiment = next(experiments)
 
 # Once you find your experiment of interest, you can download the data of that experiment by referencing your `client`
 experiment_data = experiment.get_data(client)
+
+# Variable codes are only unique within a variable group, so an experiment can have e.g. a "Volume" Z Variable
+# and a "Volume" W Variable. Key the data by variable id to get both, and map ids back to code and group if needed.
+# With key_by="id", spectra data is keyed by the spectrum variable id instead of "spectra".
+experiment_data = experiment.get_data(client, key_by="id")
+labels = {v.id: (v.code, v.group.name) for v in experiment.variables}
 ```
 
 
